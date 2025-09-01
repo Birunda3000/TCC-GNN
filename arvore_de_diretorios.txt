@@ -1,0 +1,12 @@
+gnn_tcc/
+├── .devcontainer
+│   ├── Dockerfile.cpu
+│   ├── Dockerfile.gpu
+│   ├── devcontainer.json
+│   ├── docker-compose.cpu.yml
+│   └── docker-compose.gpu.yml
+├── data
+├── .gitattributes
+├── .gitignore
+├── README.md
+└── requirements.txt
