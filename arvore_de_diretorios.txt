@@ -6,7 +6,38 @@ gnn_tcc/
 │   ├── docker-compose.cpu.yml
 │   └── docker-compose.gpu.yml
 ├── data
+│   ├── datasets
+│   │   ├── cora
+│   │   │   ├── README
+│   │   │   ├── cora.cites
+│   │   │   └── cora.content
+│   │   └── musae-github
+│   │       ├── README.txt
+│   │       ├── citing.txt
+│   │       ├── json_lengh.py
+│   │       ├── musae_git_edges.csv
+│   │       ├── musae_git_features.json
+│   │       └── musae_git_target.csv
+│   ├── output
+│   │   └── graph_visualization.html
+│   └── processed
+│       └── cora
+│           ├── cora_cites.csv
+│           └── cora_content.csv
+├── src
+│   ├── __init__.py
+│   ├── config.py
+│   ├── convert_cora_to_csv.py
+│   ├── data_loader.py
+│   ├── directory_manager.py
+│   ├── model.py
+│   ├── train.py
+│   ├── trainer.py
+│   ├── utils.py
+│   └── visualization.py
 ├── .gitattributes
 ├── .gitignore
 ├── README.md
-└── requirements.txt
+├── requirements.txt
+├── temp_graph.html
+└── test.ipynb

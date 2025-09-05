@@ -16,6 +16,9 @@ numpy
 matplotlib
 seaborn
 tqdm
+ipykernel
 
 # Biblioteca para Datasets de Grafos
 ogb
+pyvis
+beautifulsoup4
