@@ -79,7 +79,9 @@ def get_loader(dataset_name: str) -> BaseDatasetLoader:
     """Função Fábrica que retorna uma instância do loader correto."""
     if dataset_name.lower() == 'cora':
         return CoraLoader()
-    elif dataset_name.lower() == 'musaegithub':
+    elif dataset_name.lower() == 'musae-github':
         return MusaeGithubLoader()
+    elif dataset_name.lower() == 'musae-facebook':
+        raise NotImplementedError("Loader para Musae-Facebook ainda não implementado.")
     else:
         raise ValueError(f"Loader para o dataset '{dataset_name}' não foi implementado.")

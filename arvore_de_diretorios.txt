@@ -10,7 +10,14 @@ gnn_tcc/
 │   │   ├── cora
 │   │   │   ├── README
 │   │   │   ├── cora.cites
-│   │   │   └── cora.content
+│   │   │   ├── cora.content
+│   │   │   └── cora_visualization.html
+│   │   ├── musae-facebook
+│   │   │   ├── README.txt
+│   │   │   ├── citing.txt
+│   │   │   ├── musae_facebook_edges.csv
+│   │   │   ├── musae_facebook_features.json
+│   │   │   └── musae_facebook_target.csv
 │   │   └── musae-github
 │   │       ├── README.txt
 │   │       ├── citing.txt
@@ -19,7 +26,30 @@ gnn_tcc/
 │   │       ├── musae_git_features.json
 │   │       └── musae_git_target.csv
 │   ├── output
-│   │   └── graph_visualization.html
+│   │   ├── Cora__val_acc_0.8202__08-09-2025_16-44-08
+│   │   │   ├── best_model.pth
+│   │   │   ├── run_parameters.txt
+│   │   │   └── training_history.csv
+│   │   ├── Cora__val_acc_0.8300__05-09-2025_16-31-24
+│   │   │   ├── best_model.pth
+│   │   │   ├── run_parameters.txt
+│   │   │   └── training_history.csv
+│   │   ├── Cora__val_acc_0.8300__08-09-2025_16-43-53
+│   │   │   ├── best_model.pth
+│   │   │   ├── run_parameters.txt
+│   │   │   └── training_history.csv
+│   │   ├── Cora__val_acc_0.8325__08-09-2025_16-50-52
+│   │   │   ├── best_model.pth
+│   │   │   ├── run_parameters.txt
+│   │   │   └── training_history.csv
+│   │   ├── Cora__val_acc_0.8374__05-09-2025_16-32-36
+│   │   │   ├── best_model.pth
+│   │   │   ├── run_parameters.txt
+│   │   │   └── training_history.csv
+│   │   └── Cora__val_acc_0.8399__05-09-2025_16-33-07
+│   │       ├── best_model.pth
+│   │       ├── run_parameters.txt
+│   │       └── training_history.csv
 │   └── processed
 │       └── cora
 │           ├── cora_cites.csv
@@ -39,5 +69,4 @@ gnn_tcc/
 ├── .gitignore
 ├── README.md
 ├── requirements.txt
-├── temp_graph.html
 └── test.ipynb

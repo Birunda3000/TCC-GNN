@@ -19,9 +19,11 @@ class Config:
     CORA_CONTENT_PATH = "data/datasets/cora/cora.content"
     CORA_CITES_PATH = "data/datasets/cora/cora.cites"
 
-    MUSAE_EDGES_PATH = "data/datasets/musae-github/musae_git_edges.csv"
-    MUSAE_FEATURES_PATH = "data/datasets/musae-github/musae_git_features.json"
-    MUSAE_TARGET_PATH = "data/datasets/musae-github/musae_git_target.csv"
+    GITHUB_MUSAE_EDGES_PATH = "data/datasets/musae-github/musae_git_edges.csv"
+    GITHUB_MUSAE_FEATURES_PATH = "data/datasets/musae-github/musae_git_features.json"
+    GITHUB_MUSAE_TARGET_PATH = "data/datasets/musae-github/musae_git_target.csv"
+
+    OUTPUT_PATH = "data/output/"
 
     # --- Configurações de Treinamento ---
     SPLIT_RATIO = (0.7, 0.15, 0.15)  # Proporção para (Treino, Validação, Teste)
