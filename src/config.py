@@ -1,6 +1,9 @@
 # src/config.py (versão atualizada)
 
 import torch
+import os
+from datetime import datetime
+import pytz
 
 
 class Config:
@@ -11,8 +14,13 @@ class Config:
     # --- Configurações do Dispositivo ---
     DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
+    # --- Timestamp ---
+    TZ_INFO = pytz.timezone('America/Sao_Paulo')
+    TIMESTAMP = datetime.now(TZ_INFO).strftime("%Y%m%d_%H%M%S")
+
     # --- Configurações do Dataset ---
-    DATASET_NAME = "Cora"  # Opções: 'Cora', 'MusaeGithub'
+    DATASETS = ["cora", "musae-github", "musae-facebook"]
+    DATASET_NAME = DATASETS[1]
 
     # --- Caminhos para os Arquivos Brutos ---
     # Usaremos estes caminhos para carregar os dados manualmente.

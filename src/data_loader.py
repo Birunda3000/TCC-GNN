@@ -5,7 +5,7 @@ from typing import List, Dict, Any
 import pandas as pd
 import json
 from datetime import datetime, timezone, timedelta
-from config import Config
+from src.config import Config
 from src.data_format_definition import WSG, Metadata, GraphStructure, NodeFeaturesEntry
 
 
