@@ -1,94 +1,134 @@
-# Em src/model.py
+# src/model.py
+
 import torch
+import torch.nn as nn
 import torch.nn.functional as F
 from torch.nn import Module, Linear
 from torch_geometric.nn import GCNConv
-import torch.nn as nn
+from torch_geometric.data import Data
 
-class GCNEncoder(Module):
-    """Encoder GCN para o VGAE. Adapta-se a features esparsas ou densas."""
-    def __init__(self, in_channels, hidden_channels, out_channels):
-        super().__init__()
-        self.conv1 = GCNConv(in_channels, hidden_channels)
-        # Duas "cabeças" no final: uma para a média (mu) e outra para a variância (logstd)
-        self.conv_mu = GCNConv(hidden_channels, out_channels)
-        self.conv_logstd = GCNConv(hidden_channels, out_channels)
-        self.relu = nn.ReLU()
-
-    def forward(self, x, edge_index):
-        x = self.relu(self.conv1(x, edge_index))
-        # Retorna a média e o log da variância para cada nó
-        return self.conv_mu(x, edge_index), self.conv_logstd(x, edge_index)
-
-class VGAE(Module):
+class VGAE(nn.Module):
     """
-    Modelo Variational Graph Autoencoder completo.
-    Ele usa o GCNEncoder para gerar embeddings e reconstrói a matriz de adjacência.
+    Implementação de um Autoencoder Variacional de Grafo (VGAE).
+
+    Esta arquitetura aprende embeddings de nós de forma auto-supervisionada,
+    tentando reconstruir a estrutura de adjacência do grafo.
+
+    Ela é composta por:
+    1. Uma camada de EmbeddingBag para processar as features esparsas de entrada.
+    2. Um Encoder GNN (baseado em GCN) que gera uma distribuição latente (mu, log_std) para cada nó.
+    3. Um Decoder baseado em produto escalar que reconstrói as arestas.
     """
     def __init__(self, num_total_features: int, embedding_dim: int, hidden_dim: int, out_embedding_dim: int):
+        """
+        Inicializador do modelo VGAE.
+
+        Args:
+            num_total_features (int): Tamanho do vocabulário de features (de pyg_data.num_total_features).
+            embedding_dim (int): Dimensão do embedding para cada feature do vocabulário.
+            hidden_dim (int): Dimensão da camada GCN intermediária.
+            out_embedding_dim (int): Dimensão final dos embeddings dos nós.
+        """
         super().__init__()
-        
-        # Camada para lidar com as features esparsas de entrada (se necessário)
-        # Esta camada transforma os índices esparsos em vetores densos de 'embedding_dim'
+
+        # Camada de entrada: processa os índices/pesos e cria um vetor denso inicial
         self.feature_embedder = nn.EmbeddingBag(
-            num_embeddings=num_total_features, 
-            embedding_dim=embedding_dim, 
-            mode='mean'
+            num_embeddings=num_total_features,
+            embedding_dim=embedding_dim,
+            mode='sum'  # **MEAN NOT IMPLEMENTED**
         )
-        
-        # O encoder GNN que processará os vetores densos
-        self.encoder = GCNEncoder(embedding_dim, hidden_dim, out_embedding_dim)
-        
-        # Guardaremos os valores computados de mu e logstd
+
+        # Encoder: duas camadas GCN para gerar os parâmetros da distribuição
+        self.conv1 = GCNConv(embedding_dim, hidden_dim)
+        self.conv_mu = GCNConv(hidden_dim, out_embedding_dim)  # Cabeça para a média (mu)
+        self.conv_logstd = GCNConv(hidden_dim, out_embedding_dim) # Cabeça para o log da variância
+
+        # Variáveis para armazenar os parâmetros da última chamada do encode
         self.__mu__ = self.__logstd__ = None
 
-    def encode(self, data):
-        # Gera a matriz de features 'x' a partir dos dados esparsos
-        x = self.feature_embedder(data.feature_indices, data.feature_offsets)
-        edge_index = data.edge_index
-        
-        # Usa o encoder para obter os parâmetros da distribuição
-        self.__mu__, self.__logstd__ = self.encoder(x, edge_index)
-        
-        # Amostragem (reparameterization trick) para obter o embedding final Z
-        gaussian_noise = torch.randn_like(self.__mu__)
-        z = self.__mu__ + gaussian_noise * torch.exp(self.__logstd__)
+    def encode(self, data: Data) -> torch.Tensor:
+        """
+        Executa a passagem de codificação.
+
+        Args:
+            data (Data): Objeto de dados do PyTorch Geometric.
+
+        Returns:
+            torch.Tensor: A matriz de embeddings Z, amostrada da distribuição latente.
+        """
+        # 1. Gera a matriz de features 'x' a partir das features esparsas ponderadas
+        x = self.feature_embedder(
+            data.feature_indices,
+            data.feature_offsets,
+            per_sample_weights=data.feature_weights
+        )
+
+        x = F.normalize(x, p=2, dim=-1)
+
+        # 2. Propaga pela GCN para obter os parâmetros da distribuição
+        x = F.relu(self.conv1(x, data.edge_index))
+        self.__mu__ = self.conv_mu(x, data.edge_index)
+        self.__logstd__ = self.conv_logstd(x, data.edge_index)
+
+        # 3. Amostragem (Reparameterization Trick)
+        # Garante que o gradiente possa fluir através da operação de amostragem
+        random_noise = torch.randn_like(self.__mu__)
+        z = self.__mu__ + random_noise * torch.exp(self.__logstd__)
+
         return z
 
-    def decode(self, z, edge_index):
-        # Decoder simples baseado em produto escalar
-        value = (z[edge_index[0]] * z[edge_index[1]]).sum(dim=1)
-        return torch.sigmoid(value)
+    def decode(self, z: torch.Tensor, edge_index: torch.Tensor) -> torch.Tensor:
+        """
+        Decodifica os embeddings Z para reconstruir as arestas.
 
-    def kl_loss(self):
-        # A loss de regularização que organiza o espaço latente
-        kl = -0.5 * torch.mean(
+        Args:
+            z (torch.Tensor): Matriz de embeddings dos nós.
+            edge_index (torch.Tensor): Arestas a serem pontuadas.
+
+        Returns:
+            torch.Tensor: A probabilidade (logit) de existência para cada aresta.
+        """
+        # O produto escalar entre os embeddings dos nós de uma aresta
+        # mede sua similaridade, que usamos como logit para a existência da aresta.
+        return (z[edge_index[0]] * z[edge_index[1]]).sum(dim=1)
+
+    def kl_loss(self) -> torch.Tensor:
+        """
+        Calcula a divergência KL entre a distribuição latente aprendida e uma
+        distribuição normal padrão. Atua como um regularizador.
+        """
+        return -0.5 * torch.mean(
             torch.sum(1 + 2 * self.__logstd__ - self.__mu__.pow(2) - self.__logstd__.exp().pow(2), dim=1)
         )
-        return kl
 
-    def reconstruction_loss(self, z, pos_edge_index):
-        # A loss de reconstrução. O objetivo é maximizar a probabilidade de arestas existentes.
-        # Adicionamos também amostragem de arestas negativas para aprender o que NÃO conectar.
-        
-        # Amostragem de arestas negativas (que não existem no grafo)
-        num_nodes = z.size(0)
-        neg_edge_index = torch.randint(0, num_nodes, pos_edge_index.size(), dtype=torch.long, device=z.device)
+    def reconstruction_loss(self, z: torch.Tensor, pos_edge_index: torch.Tensor) -> torch.Tensor:
+        """
+        Calcula a loss de reconstrução. Compara as arestas reconstruídas
+        com as arestas reais (positivas) e arestas amostradas (negativas).
+        """
+        pos_logits = self.decode(z, pos_edge_index)
+        pos_loss = F.binary_cross_entropy_with_logits(pos_logits, z.new_ones(pos_edge_index.size(1)))
 
-        pos_y = z.new_ones(pos_edge_index.size(1))
-        neg_y = z.new_zeros(neg_edge_index.size(1))
-        
-        y = torch.cat([pos_y, neg_y], dim=0)
-        edge_index = torch.cat([pos_edge_index, neg_edge_index], dim=1)
-        
-        logits = self.decode(z, edge_index)
-        
-        return F.binary_cross_entropy_with_logits(logits, y)
+        # Amostragem de arestas negativas
+        num_neg_samples = pos_edge_index.size(1) # Amostra a mesma quantidade de arestas negativas
+        neg_edge_index = torch.randint(0, z.size(0), (2, num_neg_samples), dtype=torch.long, device=z.device)
+        neg_logits = self.decode(z, neg_edge_index)
+        neg_loss = F.binary_cross_entropy_with_logits(neg_logits, z.new_zeros(num_neg_samples))
 
-    def get_embeddings(self, data):
-        # Após o treino, usamos apenas a média (mu) como o embedding final,
-        # pois é a representação mais estável.
+        return pos_loss + neg_loss
+
+    def get_embeddings(self, data: Data) -> torch.Tensor:
+        """
+        Após o treinamento, gera os embeddings finais e estáveis dos nós.
+        Usa apenas a média (mu) da distribuição, ignorando a variância.
+        """
         with torch.no_grad():
-            x = self.feature_embedder(data.feature_indices, data.feature_offsets)
-            mu, _ = self.encoder(x, data.edge_index)
+            x = self.feature_embedder(
+                data.feature_indices, data.feature_offsets, per_sample_weights=data.feature_weights
+            )
+
+            x = F.normalize(x, p=2, dim=-1)
+
+            x = F.relu(self.conv1(x, data.edge_index))
+            mu = self.conv_mu(x, data.edge_index)
         return mu

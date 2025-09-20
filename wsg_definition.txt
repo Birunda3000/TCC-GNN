@@ -17,19 +17,17 @@ O objetivo principal é desacoplar a etapa de preparação de dados da etapa de 
 
 #### **2. Dicionário de Chaves de Nível Superior**
 
-| Chave             | Tipo   | Obrigatoriedade | Descrição                                                                             |
-| :---------------- | :----- | :-------------- | :------------------------------------------------------------------------------------ |
-| `metadata`        | Object | Obrigatório     | Contém metadados descritivos sobre o grafo, sua origem e o processo de transformação. |
-| `graph_structure` | Object | Obrigatório     | Descreve a topologia do grafo (arestas) e os labels (alvos) associados a cada nó.     |
-| `node_features`   | Object | Obrigatório     | Descreve as features de cada nó no formato universal de "lista de índices ponderada". |
+| Chave             | Tipo   | Obrigatoriedade | Descrição                                                                                   |
+| :---------------- | :----- | :-------------- | :------------------------------------------------------------------------------------------ |
+| `metadata`        | Object | Obrigatório     | Contém metadados descritivos sobre o grafo, sua origem e o processo de transformação.       |
+| `graph_structure` | Object | Obrigatório     | Descreve a topologia do grafo (arestas), os labels (alvos) e os nomes associados a cada nó. |
+| `node_features`   | Object | Obrigatório     | Descreve as features de cada nó no formato universal de "lista de índices ponderada".       |
 
 ---
 
 #### **3. Detalhamento dos Objetos Aninhados**
 
 ##### **3.1. O Objeto `metadata`**
-
-Este objeto contém informações essenciais para a interpretação e contextualização do grafo.
 
 | Chave                | Tipo    | Obrigatoriedade | Descrição                                                                                                                                                                      |
 | :------------------- | :------ | :-------------- | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -45,7 +43,7 @@ Este objeto contém informações essenciais para a interpretação e contextual
 
 ##### **3.2. O Objeto `graph_structure`**
 
-Este objeto define a topologia do grafo.
+Este objeto define a topologia do grafo e atributos de alto nível dos nós.
 
 * **`edge_index`**:
 
@@ -61,24 +59,16 @@ Este objeto define a topologia do grafo.
   * **Tipo:** `Array<Integer | null>`
   * **Descrição:** Uma lista de labels dos nós. A lista deve ter um comprimento exatamente igual a `metadata.num_nodes`, onde o valor no índice `i` corresponde ao label do nó `i`. O valor `null` deve ser usado para nós que não possuem um label conhecido.
 
+* **`node_names`**:
+
+  * **Tipo:** `Array<String | null>`
+  * **Descrição:** Uma lista de nomes (ou identificadores externos) dos nós. O comprimento deve ser exatamente igual a `metadata.num_nodes`. O valor `null` pode ser usado quando o nó não possui nome conhecido.
+
 ---
 
 ##### **3.3. O Objeto `node_features`**
 
-Este objeto implementa a representação de "lista de índices ponderada".
-
-* **Tipo:** `Object`
-* **Descrição:** Um dicionário (mapa) onde cada chave é uma **String** representando um ID de nó (e.g., `"0"`, `"1"`, ..., `"N-1"`). O valor associado a cada chave de nó é um objeto com a seguinte estrutura:
-
-  * **`indices`**:
-
-    * **Tipo:** `Array<Integer>`
-    * **Descrição:** Uma lista de índices de features associadas ao nó. Cada índice deve ser um inteiro no intervalo `[0, metadata.num_total_features - 1]`.
-  * **`weights`**:
-
-    * **Tipo:** `Array<Float>`
-    * **Descrição:** Uma lista de valores numéricos (pesos) correspondentes a cada feature na lista `indices`.
-  * **Restrição de Integridade:** Para qualquer nó, as listas `indices` e `weights` **devem ter o mesmo comprimento**.
+(sem mudanças)
 
 ---
 
@@ -100,7 +90,8 @@ Este objeto implementa a representação de "lista de índices ponderada".
             [0, 1, 2],
             [1, 2, 3]
         ],
-        "y": [0, 1, 0, null]
+        "y": [0, 1, 0, null],
+        "node_names": ["Alice", "Bob", "Carol", null]
     },
     "node_features": {
         "0": {
@@ -127,10 +118,8 @@ Este objeto implementa a representação de "lista de índices ponderada".
 
 #### **5. Considerações de Implementação**
 
-* **Filtragem de Zeros:** Ao converter features densas, recomenda-se omitir da lista `indices` e `weights` qualquer feature cujo valor seja `0.0` para otimizar o tamanho do arquivo.
-* **Validação:** Um parser que consome este formato deve validar as restrições de cardinalidade (e.g., `len(y) == num_nodes`) e a restrição de integridade (`len(indices) == len(weights)`).
-* **Indexação:** Toda a indexação (nós, features, arestas) é baseada em zero.
-* **Direcionalidade:** Implementações devem interpretar corretamente o campo `directed` ao reconstruir a topologia do grafo.
+* **Validação adicional:** o parser deve verificar que `len(node_names) == num_nodes`.
+* **Uso recomendado:** `node_names` pode ser útil para mapear IDs internos (inteiros) a nomes externos (strings).
+* **Nullables:** caso não haja nomes conhecidos, recomenda-se preencher com `null` em vez de omitir a lista.
 
 ---
-

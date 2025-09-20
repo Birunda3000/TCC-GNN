@@ -1,123 +1,153 @@
 # src/data_loader.py
 
-import torch
-from torch_geometric.data import Data
 from abc import ABC, abstractmethod
-from typing import Tuple, List
+from typing import List, Dict, Any
 import pandas as pd
-import numpy as np
 import json
+from datetime import datetime, timezone, timedelta
+from src.config import Config
+from src.data_format_definition import WSG, Metadata, GraphStructure, NodeFeaturesEntry
 
-from config import Config
 
 class BaseDatasetLoader(ABC):
-    """Classe base que define o contrato para os loaders."""
+    """Classe base que define o contrato para os loaders de dataset."""
+
     @abstractmethod
-    def load(self) -> Tuple[Data, int, List[str]]:
+    def load(self) -> WSG:
         """
         Método de carregamento principal.
-        Retorna:
-            Tuple[Data, int, List[str]]: Uma tupla contendo o objeto do grafo,
-                                         o número de classes e uma lista com os nomes das classes.
+
+        Deve carregar os dados brutos de um dataset e transformá-los em um
+        objeto que segue a especificação do formato Weighted Sparse Graph (WSG).
+
+        Returns:
+            WSG: Um objeto Pydantic representando o grafo no formato WSG.
         """
         pass
 
+
 class CoraLoader(BaseDatasetLoader):
     """Carrega o dataset Cora a partir de arquivos locais."""
-    def load(self) -> Tuple[Data, int, List[str]]:
-        print("Usando CoraLoader para carregar dados de arquivos locais...")
-        
-        df_content = pd.read_csv(Config.CORA_CONTENT_PATH, sep='\t', header=None, dtype={0: str})
-        
-        paper_ids = df_content.iloc[:, 0].tolist()
-        paper_to_idx = {paper_id: i for i, paper_id in enumerate(paper_ids)}
-        
-        features = torch.tensor(df_content.iloc[:, 1:-1].values, dtype=torch.float)
-        
-        # Agora capturamos os nomes das classes do pandas
-        labels, class_names = pd.factorize(df_content.iloc[:, -1])
-        labels = torch.tensor(labels, dtype=torch.long)
-        
-        df_cites = pd.read_csv(Config.CORA_CITES_PATH, sep='\t', header=None, dtype=str)
-        
-        valid_edges = df_cites[df_cites[0].isin(paper_to_idx) & df_cites[1].isin(paper_to_idx)]
-        src = [paper_to_idx[paper] for paper in valid_edges[0]]
-        dst = [paper_to_idx[paper] for paper in valid_edges[1]]
-        edge_index = torch.tensor([src, dst], dtype=torch.long)
 
-        graph_data = Data(x=features, edge_index=edge_index, y=labels)
-        
-        print("Cora carregado com sucesso dos arquivos locais.")
-        # Retornamos os nomes das classes como uma lista de strings
-        return graph_data, len(class_names), class_names.tolist()
+    def load(self) -> WSG:
+        """
+        Carrega e processa o dataset Cora para o formato WSG.
+
+        Raises:
+            NotImplementedError: Esta função ainda não foi implementada.
+        """
+        # TODO: Implementar a lógica de carregamento e processamento para o dataset Cora.
+        raise NotImplementedError(
+            "O loader para o dataset Cora ainda não foi implementado."
+        )
+
 
 # Em src/data_loader.py
 import itertools
 
 class MusaeGithubLoader(BaseDatasetLoader):
-    """
-    Carrega o dataset Musae-Github, tratando suas features esparsas
-    para uso com uma camada EmbeddingBag.
-    """
-    def load(self) -> Tuple[Data, int, List[str]]:
-        print("Usando MusaeGithubLoader para carregar dados (modo features esparsas)...")
-        
-        # Carregamento de arestas e labels (permanece igual)
-        df_edges = pd.read_csv(Config.MUSAE_EDGES_PATH)
-        edge_index = torch.tensor(df_edges.values.T, dtype=torch.long)
-        
-        df_target = pd.read_csv(Config.MUSAE_TARGET_PATH)
-        df_target = df_target.sort_values(by='id').reset_index(drop=True)
-        labels = torch.tensor(df_target['ml_target'].values, dtype=torch.long)
-        num_classes = len(df_target['ml_target'].unique())
-        class_names = [f"Classe {i}" for i in range(num_classes)]
-        
-        num_nodes = int(df_target['id'].max()) + 1
-        
-        # --- NOVO TRATAMENTO DAS FEATURES ESPARSAS ---
-        with open(Config.MUSAE_FEATURES_PATH, 'r') as f:
-            feature_data = json.load(f)
-        
-        # Ordena os dados de features pelo ID do nó (de 0 a num_nodes-1)
-        # Isso garante que a ordem dos offsets corresponda à ordem dos nós
-        sorted_features = [feature_data[str(i)] for i in range(num_nodes)]
+    """Carrega o dataset Musae-Github a partir de arquivos locais."""
 
-        # 1. Cria o tensor 1D gigante com todos os índices
-        # A função chain.from_iterable é uma forma eficiente de achatar a lista de listas
-        all_feature_indices = list(itertools.chain.from_iterable(sorted_features))
-        feature_indices = torch.tensor(all_feature_indices, dtype=torch.long)
+    def load(self) -> WSG:
+        """
+        Carrega os dados brutos do Musae-Github e os transforma para o formato WSG.
 
-        # 2. Cria os offsets
-        # O primeiro offset é sempre 0
-        offsets = [0] + list(itertools.accumulate(len(f) for f in sorted_features))[:-1]
-        feature_offsets = torch.tensor(offsets, dtype=torch.long)
-        
-        # 3. Descobre o número total de features únicas
-        num_total_features = int(feature_indices.max().item() + 1)
-        print(f"Total de features únicas (tamanho do dicionário): {num_total_features}")
+        O processo consiste em:
+        1. Carregar as arestas, alvos (labels) e features dos arquivos CSV e JSON.
+        2. Construir os dicionários para metadados, estrutura do grafo e features.
+        3. Instanciar o objeto Pydantic `WSG`, que valida automaticamente a estrutura e os tipos.
+        4. Retornar o objeto `WSG` validado.
 
-        graph_data = Data(
-            edge_index=edge_index, 
-            y=labels, 
-            num_nodes=num_nodes,
-            # Adicionamos os novos atributos ao objeto Data
-            feature_indices=feature_indices,
-            feature_offsets=feature_offsets
+        Returns:
+            WSG: Um objeto Pydantic contendo o grafo completo e validado no formato WSG.
+        """
+        edges_df = pd.read_csv(Config.GITHUB_MUSAE_EDGES_PATH)
+        target_df = pd.read_csv(Config.GITHUB_MUSAE_TARGET_PATH)
+        with open(Config.GITHUB_MUSAE_FEATURES_PATH, "r") as f:
+            features_json: Dict[str, List[int]] = json.load(f)
+
+        print("Arquivos carregados. Iniciando processamento para o formato WSG...")
+
+        # --- 1. Preparar dados para os modelos Pydantic ---
+
+        # Garante que arestas não direcionadas sejam únicas e bidirecionais
+        # Cria pares (min(u,v), max(u,v)) para identificar arestas únicas
+        unique_edges = set(
+            tuple(sorted(edge)) for edge in edges_df.itertuples(index=False, name=None)
         )
-        
-        # Adicionamos metadados que serão úteis para construir o modelo
-        graph_data.num_total_features = num_total_features
-        
-        print("Musae-Github (esparso) carregado com sucesso.")
-        return graph_data, num_classes, class_names
+
+        source_nodes = [u for u, v in unique_edges] + [v for u, v in unique_edges]
+        target_nodes = [v for u, v in unique_edges] + [u for u, v in unique_edges]
+
+        num_nodes: int = len(target_df)
+        num_edges: int = len(source_nodes)
+
+        all_indices = (idx for indices in features_json.values() for idx in indices)
+        try:
+            max_feature_index = max(all_indices)
+            num_total_features = max_feature_index + 1
+        except ValueError:
+            num_total_features = 0
+
+        tz_offset = timedelta(hours=-3)
+        tz_info = timezone(tz_offset)
+        processed_at: str = datetime.now(tz_info).isoformat()
+
+        metadata_data = {
+            "dataset_name": "Musae-Github",
+            "feature_type": "sparse_binary",
+            "num_nodes": num_nodes,
+            "num_edges": num_edges,
+            "num_total_features": num_total_features,
+            "processed_at": processed_at,
+            "directed": False,
+        }
+
+        graph_structure_data = {
+            "edge_index": [
+                source_nodes,
+                target_nodes,
+            ],
+            "y": target_df["ml_target"]
+            .where(pd.notnull(target_df["ml_target"]), None)
+            .tolist(),
+            "node_names": target_df["name"].tolist(),
+        }
+
+        # Garante que todos os nós de 0 a num_nodes-1 tenham uma entrada de feature.
+        # Se um nó não estiver em features_json, ele recebe listas vazias.
+        node_features_data = {
+            str(i): {
+                "indices": features_json.get(str(i), []),
+                "weights": [1.0] * len(features_json.get(str(i), [])),
+            }
+            for i in range(num_nodes)
+        }
+
+        # --- 2. Instanciar e validar o objeto WSG ---
+        # A instanciação dos modelos Pydantic substitui as asserções manuais.
+        # Se os dados não estiverem no formato correto, Pydantic levantará um `ValidationError`.
+        wsg_object = WSG(
+            metadata=Metadata(**metadata_data),
+            graph_structure=GraphStructure(**graph_structure_data),
+            node_features={
+                k: NodeFeaturesEntry(**v) for k, v in node_features_data.items()
+            },
+        )
+
+        print("Processamento e validação com Pydantic concluídos com sucesso.")
+        return wsg_object
+
 
 def get_loader(dataset_name: str) -> BaseDatasetLoader:
     """Função Fábrica que retorna uma instância do loader correto."""
-    if dataset_name.lower() == 'cora':
+    if dataset_name.lower() == "cora":
         return CoraLoader()
-    elif dataset_name.lower() == 'musae-github':
+    elif dataset_name.lower() == "musae-github":
         return MusaeGithubLoader()
-    elif dataset_name.lower() == 'musae-facebook':
+    elif dataset_name.lower() == "musae-facebook":
         raise NotImplementedError("Loader para Musae-Facebook ainda não implementado.")
     else:
-        raise ValueError(f"Loader para o dataset '{dataset_name}' não foi implementado.")
+        raise ValueError(
+            f"Loader para o dataset '{dataset_name}' não foi implementado."
+        )
