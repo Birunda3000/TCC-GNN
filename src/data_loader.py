@@ -51,11 +51,18 @@ class CoraLoader(BaseDatasetLoader):
         # Retornamos os nomes das classes como uma lista de strings
         return graph_data, len(class_names), class_names.tolist()
 
+# Em src/data_loader.py
+import itertools
+
 class MusaeGithubLoader(BaseDatasetLoader):
-    """Carrega o dataset Musae-Github a partir de arquivos locais."""
+    """
+    Carrega o dataset Musae-Github, tratando suas features esparsas
+    para uso com uma camada EmbeddingBag.
+    """
     def load(self) -> Tuple[Data, int, List[str]]:
-        print("Usando MusaeGithubLoader para carregar dados de arquivos locais...")
+        print("Usando MusaeGithubLoader para carregar dados (modo features esparsas)...")
         
+        # Carregamento de arestas e labels (permanece igual)
         df_edges = pd.read_csv(Config.MUSAE_EDGES_PATH)
         edge_index = torch.tensor(df_edges.values.T, dtype=torch.long)
         
@@ -63,16 +70,45 @@ class MusaeGithubLoader(BaseDatasetLoader):
         df_target = df_target.sort_values(by='id').reset_index(drop=True)
         labels = torch.tensor(df_target['ml_target'].values, dtype=torch.long)
         num_classes = len(df_target['ml_target'].unique())
-        
-        # Como não temos nomes, criamos nomes genéricos para a legenda
         class_names = [f"Classe {i}" for i in range(num_classes)]
         
-        num_nodes = max(df_target['id'].max(), edge_index.max()) + 1
-        features = None
+        num_nodes = int(df_target['id'].max()) + 1
         
-        graph_data = Data(x=features, edge_index=edge_index, y=labels, num_nodes=num_nodes)
+        # --- NOVO TRATAMENTO DAS FEATURES ESPARSAS ---
+        with open(Config.MUSAE_FEATURES_PATH, 'r') as f:
+            feature_data = json.load(f)
         
-        print("Musae-Github carregado com sucesso dos arquivos locais.")
+        # Ordena os dados de features pelo ID do nó (de 0 a num_nodes-1)
+        # Isso garante que a ordem dos offsets corresponda à ordem dos nós
+        sorted_features = [feature_data[str(i)] for i in range(num_nodes)]
+
+        # 1. Cria o tensor 1D gigante com todos os índices
+        # A função chain.from_iterable é uma forma eficiente de achatar a lista de listas
+        all_feature_indices = list(itertools.chain.from_iterable(sorted_features))
+        feature_indices = torch.tensor(all_feature_indices, dtype=torch.long)
+
+        # 2. Cria os offsets
+        # O primeiro offset é sempre 0
+        offsets = [0] + list(itertools.accumulate(len(f) for f in sorted_features))[:-1]
+        feature_offsets = torch.tensor(offsets, dtype=torch.long)
+        
+        # 3. Descobre o número total de features únicas
+        num_total_features = int(feature_indices.max().item() + 1)
+        print(f"Total de features únicas (tamanho do dicionário): {num_total_features}")
+
+        graph_data = Data(
+            edge_index=edge_index, 
+            y=labels, 
+            num_nodes=num_nodes,
+            # Adicionamos os novos atributos ao objeto Data
+            feature_indices=feature_indices,
+            feature_offsets=feature_offsets
+        )
+        
+        # Adicionamos metadados que serão úteis para construir o modelo
+        graph_data.num_total_features = num_total_features
+        
+        print("Musae-Github (esparso) carregado com sucesso.")
         return graph_data, num_classes, class_names
 
 def get_loader(dataset_name: str) -> BaseDatasetLoader:

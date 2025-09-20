@@ -61,12 +61,9 @@ gnn_tcc/
 │   ├── data_loader.py
 │   ├── directory_manager.py
 │   ├── model.py
-│   ├── train.py
-│   ├── trainer.py
 │   ├── utils.py
 │   └── visualization.py
 ├── .gitattributes
 ├── .gitignore
 ├── README.md
-├── requirements.txt
-└── test.ipynb
+└── requirements.txt
