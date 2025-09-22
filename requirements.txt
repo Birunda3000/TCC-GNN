@@ -17,9 +17,8 @@ matplotlib
 seaborn
 tqdm
 ipykernel
+pydantic
 
-# Biblioteca para Datasets de Grafos
-ogb
+# Visualização
 pyvis
 beautifulsoup4
-pydantic

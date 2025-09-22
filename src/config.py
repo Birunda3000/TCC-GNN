@@ -14,7 +14,7 @@ class Config:
     DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
     # --- Timestamp ---
-    TZ_INFO = pytz.timezone('America/Sao_Paulo')
+    TZ_INFO = pytz.timezone("America/Sao_Paulo")
     TIMESTAMP = datetime.now(TZ_INFO).strftime("%Y%m%d_%H%M%S")
 
     # --- Configurações do Dataset ---
@@ -45,10 +45,16 @@ class Config:
 
     # --- Configurações de Treinamento ---
     SPLIT_RATIO = (0.7, 0.15, 0.15)  # Proporção para (Treino, Validação, Teste)
+    LEARNING_RATE = 0.001
+    EPOCHS = 200
+    EMBEDDING_DIM = 128  # Dimensão inicial das features
+    HIDDEN_DIM = 64  # Dimensão da camada GCN oculta
+    OUT_EMBEDDING_DIM = 8  # Dimensão final dos embeddings
 
     # --- Configurações de Visualização ---
     VIS_SAMPLES = 50000
     VIS_OUTPUT_FILENAME = "data/output/graph_visualization.png"
+
 
 print(f"Configurações carregadas. Usando dispositivo: {Config.DEVICE}")
 print(f"Dataset selecionado: {Config.DATASET_NAME}")
