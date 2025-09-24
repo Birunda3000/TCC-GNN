@@ -67,8 +67,23 @@ def main():
     # --- 5. Extração e Salvamento dos Resultados ---
     print("\n[FASE FINAL] Gerando e salvando resultados...")
     run_path = directory_manager.get_run_path()
-    save_results(trained_model, pyg_data, wsg_obj, config, save_path=run_path)
-    save_report(config, training_history, training_duration, save_path=run_path)
+
+    # Medir o tempo de inferência (geração dos embeddings)
+    inference_start_time = time.time()
+    final_embeddings = trained_model.get_embeddings(pyg_data)
+    inference_end_time = time.time()
+    inference_duration = inference_end_time - inference_start_time
+    print(f"Geração de embeddings (inferência) concluída em {inference_duration:.4f} segundos.")
+
+    # Salvar os artefatos da execução
+    save_results(trained_model, final_embeddings, wsg_obj, config, save_path=run_path)
+    save_report(
+        config,
+        training_history,
+        training_duration,
+        inference_duration,
+        save_path=run_path,
+    )
 
     # Prepara as métricas para o nome do diretório final
     final_metrics = training_history[-1]

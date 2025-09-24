@@ -72,6 +72,7 @@ def save_report(
     config: Config,
     training_history: List[Dict[str, float]],
     training_duration: float,
+    inference_duration: float,
     save_path: str,
 ):
     """
@@ -81,6 +82,7 @@ def save_report(
         config (Config): O objeto de configuração da execução.
         training_history (List[Dict[str, float]]): O histórico de métricas do treinamento.
         training_duration (float): O tempo total de treinamento em segundos.
+        inference_duration (float): O tempo total da inferência em segundos.
         save_path (str): O caminho do diretório onde o relatório será salvo.
     """
     final_metrics = training_history[-1]
@@ -112,6 +114,7 @@ HIPERPARÂMETROS
 RESULTADOS FINAIS
 -----------------
 - Tempo Total de Treinamento: {training_duration:.2f} segundos
+- Tempo de Inferência (gerar embeddings): {inference_duration:.4f} segundos
 - Loss Total Final: {final_metrics['total_loss']:.6f}
 - Loss de Reconstrução Final: {final_metrics['recon_loss']:.6f}
 - Loss KL Final: {final_metrics['kl_loss']:.6f}
@@ -125,7 +128,11 @@ RESULTADOS FINAIS
 
 
 def save_results(
-    model: VGAE, pyg_data: Data, wsg_obj: WSG, config: Config, save_path: str
+    model: VGAE,
+    final_embeddings: torch.Tensor,
+    wsg_obj: WSG,
+    config: Config,
+    save_path: str,
 ):
     """
     Gera os embeddings finais e os salva em um novo arquivo no formato WSG.
@@ -133,7 +140,7 @@ def save_results(
 
     Args:
         model (VGAE): O modelo treinado.
-        pyg_data (Data): Os dados do grafo no formato PyG.
+        final_embeddings (torch.Tensor): Os embeddings de nós já gerados.
         wsg_obj (WSG): O objeto de dados original no formato WSG, usado como base.
         config (Config): O objeto de configuração.
         save_path (str): O caminho do diretório onde os resultados serão salvos.
@@ -146,8 +153,8 @@ def save_results(
     torch.save(model.state_dict(), model_path)
     print(f"Modelo treinado salvo em: '{model_path}'")
 
-    # --- 2. Gerar os embeddings finais ---
-    final_embeddings = model.get_embeddings(pyg_data).cpu()
+    # --- 2. Usar os embeddings finais já gerados ---
+    final_embeddings = final_embeddings.cpu()
 
     # --- 3. Construir o novo objeto WSG com os embeddings como features ---
 
