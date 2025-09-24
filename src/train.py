@@ -14,7 +14,7 @@ from src.config import Config
 from src.data_loader import get_loader
 from src.data_converter import DataConverter
 from src.model import VGAE
-from src.data_format_definition import WSG
+from src.data_format_definition import WSG, Metadata, GraphStructure, NodeFeaturesEntry
 from torch_geometric.data import Data
 
 
@@ -63,7 +63,7 @@ def train_model(
                 f"Epoch: {epoch:03d} | Loss Total: {total_loss:.4f} | "
                 f"Reconstrução: {recon_loss:.4f} | KL: {kl_loss:.4f}"
             )
-    
+
     print(f"Métricas finais do treinamento: {training_history[-1]}")
     return model, training_history
 
@@ -124,75 +124,74 @@ RESULTADOS FINAIS
     print(f"Relatório de execução salvo em: '{report_path}'")
 
 
-def save_results(model: VGAE, pyg_data: Data, wsg_obj: WSG, config: Config, save_path: str = None):
+def save_results(
+    model: VGAE, pyg_data: Data, wsg_obj: WSG, config: Config, save_path: str
+):
     """
-    Gera e salva os embeddings finais, o modelo e os metadados.
+    Gera os embeddings finais e os salva em um novo arquivo no formato WSG.
+    Também salva o estado do modelo treinado.
 
     Args:
         model (VGAE): O modelo treinado.
         pyg_data (Data): Os dados do grafo no formato PyG.
-        wsg_obj (WSG): O objeto de dados original no formato WSG.
+        wsg_obj (WSG): O objeto de dados original no formato WSG, usado como base.
         config (Config): O objeto de configuração.
+        save_path (str): O caminho do diretório onde os resultados serão salvos.
     """
     model.eval()
     tz_info = pytz.timezone("America/Sao_Paulo")
 
-    # Gerar os embeddings finais
-    final_embeddings = model.get_embeddings(pyg_data)
-
-    # Salvar o estado do modelo treinado
-    model_path = os.path.join(save_path, f"vgae_model.pt")
+    # --- 1. Salvar o estado do modelo treinado ---
+    model_path = os.path.join(save_path, "vgae_model.pt")
     torch.save(model.state_dict(), model_path)
     print(f"Modelo treinado salvo em: '{model_path}'")
 
-    # Construir o "dossiê" completo de saída em JSON
+    # --- 2. Gerar os embeddings finais ---
+    final_embeddings = model.get_embeddings(pyg_data).cpu()
 
-    # 1. Pré-calcular informações estruturais para acesso rápido
-    adj = {i: [] for i in range(wsg_obj.metadata.num_nodes)}
-    for i in range(len(wsg_obj.graph_structure.edge_index[0])):
-        u = wsg_obj.graph_structure.edge_index[0][i]
-        v = wsg_obj.graph_structure.edge_index[1][i]
-        adj[u].append(v)
+    # --- 3. Construir o novo objeto WSG com os embeddings como features ---
 
-    # 2. Montar o dicionário de saída
-    output_data = {
-        "metadata": {
-            "dataset_name": wsg_obj.metadata.dataset_name,
-            "model_name": "VGAE",
-            "embedding_dim": config.OUT_EMBEDDING_DIM,
-            "num_nodes": wsg_obj.metadata.num_nodes,
-            "num_edges": wsg_obj.metadata.num_edges,
-            "num_total_features": wsg_obj.metadata.num_total_features,
-            "directed": wsg_obj.metadata.directed,
-            "training_timestamp": datetime.now(tz_info).isoformat(),
-            "source_model_path": model_path,
-        },
-        "nodes": {},
-    }
+    # a) Metadados para o novo arquivo WSG
+    output_metadata = Metadata(
+        dataset_name=f"{wsg_obj.metadata.dataset_name}-Embeddings",
+        feature_type="dense_continuous",  # As features agora são os embeddings densos
+        num_nodes=wsg_obj.metadata.num_nodes,
+        num_edges=wsg_obj.metadata.num_edges,
+        num_total_features=config.OUT_EMBEDDING_DIM,  # A nova "dimensão do vocabulário" é a dimensão do embedding
+        processed_at=datetime.now(tz_info).isoformat(),
+        directed=wsg_obj.metadata.directed,
+    )
+
+    # b) A estrutura do grafo (arestas, labels, nomes) é copiada diretamente
+    output_graph_structure = wsg_obj.graph_structure
+
+    # c) Converter os embeddings densos para o formato de features do WSG
+    output_node_features = {}
+    embedding_indices = list(range(config.OUT_EMBEDDING_DIM))
 
     for i in range(wsg_obj.metadata.num_nodes):
-        node_id_str = str(i)
-        output_data["nodes"][node_id_str] = {
-            "node_id": i,
-            "original_name": wsg_obj.graph_structure.node_names[i],
-            "embedding": final_embeddings[i]
-            .cpu()
-            .tolist(),  # Mover para CPU e converter
-            "original_features": wsg_obj.node_features[node_id_str].dict(),
-            "structural_info": {"degree": len(adj[i]), "neighbors": adj[i]},
-        }
+        node_embedding = final_embeddings[i].tolist()
+        output_node_features[str(i)] = NodeFeaturesEntry(
+            indices=embedding_indices,
+            weights=node_embedding,
+        )
 
-    # 3. Salvar o arquivo JSON final
-    output_filename = f"embeddings_output_{config.TIMESTAMP}.json"
+    # d) Montar e validar o objeto WSG final
+    output_wsg = WSG(
+        metadata=output_metadata,
+        graph_structure=output_graph_structure,
+        node_features=output_node_features,
+    )
+
+    # --- 4. Salvar o novo arquivo .wsg.json ---
+    output_filename = f"{config.DATASET_NAME}_embeddings.wsg.json"
     output_path = os.path.join(save_path, output_filename)
 
+    # Usamos .model_dump_json() do Pydantic para serialização correta
     with open(output_path, "w") as f:
-        json.dump(output_data, f)  # Sem indentação para economizar espaço
+        f.write(output_wsg.model_dump_json(indent=2))
 
-    print(f"Arquivo de saída de embeddings salvo em: '{output_path}'")
-    print("\n" + "=" * 50)
-    print("PROCESSO CONCLUÍDO COM SUCESSO!")
-    print("=" * 50)
+    print(f"Arquivo de embeddings no formato WSG salvo em: '{output_path}'")
 
 
 def main():
@@ -250,7 +249,9 @@ def main():
     save_results(model, pyg_data, wsg_obj, config)
 
     # Salvar relatório da execução
-    training_duration = sum(epoch_metrics["epoch"] for epoch_metrics in training_history)
+    training_duration = sum(
+        epoch_metrics["epoch"] for epoch_metrics in training_history
+    )
     save_report(config, training_history, training_duration, config.RESULTS_PATH)
 
 
