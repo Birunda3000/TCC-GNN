@@ -1,4 +1,0 @@
-seed: 3470351761
-dataset: Cora
-split_ratio: (0.7, 0.15, 0.15)
-device: cpu
