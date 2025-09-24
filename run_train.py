@@ -50,7 +50,7 @@ def main():
 
     # --- 4. Loop de Treinamento ---
     print("\n[FASE 4] Iniciando treinamento do modelo...")
-    trained_model = train_model(model, pyg_data, optimizer, config.EPOCHS)
+    trained_model, final_metrics = train_model(model, pyg_data, optimizer, config.EPOCHS)
     print("Treinamento finalizado.")
 
     # --- 5. Extração e Salvamento dos Resultados ---
@@ -58,11 +58,15 @@ def main():
     run_path = directory_manager.get_run_path()
     save_results(trained_model, pyg_data, wsg_obj, config, save_path=run_path)
 
-    # Finaliza o diretório de execução
-    # Como o VGAE é auto-supervisionado, não temos métricas de validação como 'val_acc'.
-    # O nome final do diretório será baseado apenas no nome do dataset e no timestamp.
+    # Prepara as métricas para o nome do diretório final
+    run_metrics = {
+        "loss": final_metrics.get("loss", 0.0),
+        "emb_dim": config.OUT_EMBEDDING_DIM,
+    }
+
+    # Finaliza o diretório de execução com o nome contendo as métricas
     final_path = directory_manager.finalize_run_directory(
-        dataset_name=config.DATASET_NAME, metrics={}
+        dataset_name=config.DATASET_NAME, metrics=run_metrics
     )
 
     print("\n" + "=" * 50)

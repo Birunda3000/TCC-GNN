@@ -1,6 +1,6 @@
 import os
 import shutil
-from typing import Dict, Optional, List
+from typing import Dict, Optional, List, Union
 
 from src.config import Config
 
@@ -46,16 +46,17 @@ class DirectoryManager:
         return self.final_dir_path if self.final_dir_path else self.run_dir_path
 
     def finalize_run_directory(
-        self, dataset_name: str, metrics: Dict[str, float]
+        self, dataset_name: str, metrics: Dict[str, Union[float, int]]
     ) -> str:
         """
         Renomeia o diretório temporário para um nome final descritivo e informativo.
 
-        Exemplo de nome final: 'Cora__val_acc_0.83__08-09-2025_16-44-08'
+        Exemplo de nome final: 'Cora__loss_2.5123__emb_dim_8__08-09-2025_16-44-08'
 
         Args:
             dataset_name (str): Nome do dataset utilizado (ex: 'Cora').
-            metrics (Dict[str, float]): Dicionário com métricas chave-valor (ex: {'val_acc': 0.83}).
+            metrics (Dict[str, Union[float, int]]): Dicionário com métricas e parâmetros.
+                                                    Floats são formatados, inteiros não.
 
         Returns:
             str: O caminho completo para o diretório final renomeado.
@@ -66,9 +67,15 @@ class DirectoryManager:
             )
             return ""
 
-        metrics_str_parts: List[str] = [
-            f"{key}_{value:.4f}".replace(".", "_") for key, value in metrics.items()
-        ]
+        metrics_str_parts: List[str] = []
+        for key, value in metrics.items():
+            if isinstance(value, float):
+                # Formata floats com 4 casas decimais
+                metrics_str_parts.append(f"{key}_{value:.4f}".replace(".", "_"))
+            else:
+                # Mantém inteiros como estão
+                metrics_str_parts.append(f"{key}_{value}")
+
         metrics_str = "__".join(metrics_str_parts)
 
         # Constrói o nome final, omitindo a parte das métricas se estiver vazia

@@ -14,11 +14,12 @@ from src.data_converter import DataConverter
 from src.model import VGAE
 from src.data_format_definition import WSG
 from torch_geometric.data import Data
+from typing import Tuple, Dict
 
 
 def train_model(
     model: VGAE, data: Data, optimizer: optim.Optimizer, epochs: int
-) -> VGAE:
+) -> Tuple[VGAE, Dict[str, float]]:
     """
     Executa o loop de treinamento para o modelo VGAE.
 
@@ -29,7 +30,7 @@ def train_model(
         epochs (int): O número de épocas para treinar.
 
     Returns:
-        VGAE: O modelo treinado.
+        Tuple[VGAE, Dict[str, float]]: O modelo treinado e um dicionário com as métricas finais de loss.
     """
     for epoch in range(1, epochs + 1):
         model.train()
@@ -51,7 +52,10 @@ def train_model(
                 f"Epoch: {epoch:03d} | Loss Total: {total_loss:.4f} | "
                 f"Reconstrução: {recon_loss:.4f} | KL: {kl_loss:.4f}"
             )
-    return model
+    
+    final_metrics = {"loss": total_loss.item()}
+    print(f"Métricas finais do treinamento: {final_metrics}")
+    return model, final_metrics
 
 
 def save_results(model: VGAE, pyg_data: Data, wsg_obj: WSG, config: Config, save_path: str = None):
