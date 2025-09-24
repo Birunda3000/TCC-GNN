@@ -2,6 +2,7 @@
 import os
 from datetime import datetime
 from zoneinfo import ZoneInfo
+import time
 
 
 class Config:
@@ -41,12 +42,15 @@ class Config:
 
     # --- Hiperparâmetros do Modelo VGAE ---
     EMBEDDING_DIM = 128  # Dimensão do embedding das features de entrada
-    HIDDEN_DIM = 64  # Dimensão da camada GCN oculta
-    OUT_EMBEDDING_DIM = 8  # Dimensão do embedding final do nó
+    HIDDEN_DIM = 128  # Dimensão da camada GCN oculta
+    OUT_EMBEDDING_DIM = 32  # Dimensão do embedding final do nó
 
     # --- Configurações de Treinamento ---
-    EPOCHS = 100
-    LEARNING_RATE = 0.01
+    EPOCHS = 50
+    LEARNING_RATE = 0.001
+    # Gera uma semente aleatória baseada no tempo atual para garantir execuções
+    # diferentes, mas a registra para permitir reprodutibilidade.
+    RANDOM_SEED = int(time.time())
 
     # --- Configurações de Visualização ---
     VIS_SAMPLES = 1500  # Número máximo de nós para incluir na visualização

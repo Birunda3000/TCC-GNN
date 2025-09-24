@@ -6,6 +6,8 @@ import os
 import json
 from datetime import datetime
 import pytz
+import time
+from typing import Tuple, Dict, List
 
 # --- Importa nossos módulos customizados ---
 from src.config import Config
@@ -14,12 +16,11 @@ from src.data_converter import DataConverter
 from src.model import VGAE
 from src.data_format_definition import WSG
 from torch_geometric.data import Data
-from typing import Tuple, Dict
 
 
 def train_model(
     model: VGAE, data: Data, optimizer: optim.Optimizer, epochs: int
-) -> Tuple[VGAE, Dict[str, float]]:
+) -> Tuple[VGAE, List[Dict[str, float]]]:
     """
     Executa o loop de treinamento para o modelo VGAE.
 
@@ -30,8 +31,10 @@ def train_model(
         epochs (int): O número de épocas para treinar.
 
     Returns:
-        Tuple[VGAE, Dict[str, float]]: O modelo treinado e um dicionário com as métricas finais de loss.
+        Tuple[VGAE, List[Dict[str, float]]]: O modelo treinado e um histórico
+                                             das métricas de loss por época.
     """
+    training_history = []
     for epoch in range(1, epochs + 1):
         model.train()
         optimizer.zero_grad()
@@ -47,15 +50,78 @@ def train_model(
         total_loss.backward()
         optimizer.step()
 
+        epoch_metrics = {
+            "epoch": epoch,
+            "total_loss": total_loss.item(),
+            "recon_loss": recon_loss.item(),
+            "kl_loss": kl_loss.item(),
+        }
+        training_history.append(epoch_metrics)
+
         if epoch % 10 == 0:
             print(
                 f"Epoch: {epoch:03d} | Loss Total: {total_loss:.4f} | "
                 f"Reconstrução: {recon_loss:.4f} | KL: {kl_loss:.4f}"
             )
     
-    final_metrics = {"loss": total_loss.item()}
-    print(f"Métricas finais do treinamento: {final_metrics}")
-    return model, final_metrics
+    print(f"Métricas finais do treinamento: {training_history[-1]}")
+    return model, training_history
+
+
+def save_report(
+    config: Config,
+    training_history: List[Dict[str, float]],
+    training_duration: float,
+    save_path: str,
+):
+    """
+    Salva um relatório de texto com o resumo da execução.
+
+    Args:
+        config (Config): O objeto de configuração da execução.
+        training_history (List[Dict[str, float]]): O histórico de métricas do treinamento.
+        training_duration (float): O tempo total de treinamento em segundos.
+        save_path (str): O caminho do diretório onde o relatório será salvo.
+    """
+    final_metrics = training_history[-1]
+    report_path = os.path.join(save_path, "run_summary.txt")
+
+    content = f"""
+=================================================
+          RESUMO DA EXECUÇÃO DO MODELO
+=================================================
+
+INFORMAÇÕES GERAIS
+------------------
+- Dataset: {config.DATASET_NAME}
+- Modelo: VGAE
+- Timestamp: {config.TIMESTAMP}
+
+CONFIGURAÇÃO DE REPRODUTIBILIDADE
+---------------------------------
+- Semente Aleatória (seed): {config.RANDOM_SEED}
+
+HIPERPARÂMETROS
+---------------
+- Épocas de Treinamento: {config.EPOCHS}
+- Taxa de Aprendizagem (LR): {config.LEARNING_RATE}
+- Dimensão do Embedding de Saída: {config.OUT_EMBEDDING_DIM}
+- Dimensão da Camada Oculta (GCN): {config.HIDDEN_DIM}
+- Dimensão do Embedding de Features: {config.EMBEDDING_DIM}
+
+RESULTADOS FINAIS
+-----------------
+- Tempo Total de Treinamento: {training_duration:.2f} segundos
+- Loss Total Final: {final_metrics['total_loss']:.6f}
+- Loss de Reconstrução Final: {final_metrics['recon_loss']:.6f}
+- Loss KL Final: {final_metrics['kl_loss']:.6f}
+
+=================================================
+"""
+    with open(report_path, "w") as f:
+        f.write(content)
+
+    print(f"Relatório de execução salvo em: '{report_path}'")
 
 
 def save_results(model: VGAE, pyg_data: Data, wsg_obj: WSG, config: Config, save_path: str = None):
@@ -75,7 +141,7 @@ def save_results(model: VGAE, pyg_data: Data, wsg_obj: WSG, config: Config, save
     final_embeddings = model.get_embeddings(pyg_data)
 
     # Salvar o estado do modelo treinado
-    model_path = os.path.join(save_path, "vgae_model.pt")
+    model_path = os.path.join(save_path, f"vgae_model.pt")
     torch.save(model.state_dict(), model_path)
     print(f"Modelo treinado salvo em: '{model_path}'")
 
@@ -117,13 +183,16 @@ def save_results(model: VGAE, pyg_data: Data, wsg_obj: WSG, config: Config, save
         }
 
     # 3. Salvar o arquivo JSON final
-    output_filename = "embeddings_output.json"
+    output_filename = f"embeddings_output_{config.TIMESTAMP}.json"
     output_path = os.path.join(save_path, output_filename)
 
     with open(output_path, "w") as f:
-        json.dump(output_data, f, indent=2) # Adicionada indentação para legibilidade
+        json.dump(output_data, f)  # Sem indentação para economizar espaço
 
     print(f"Arquivo de saída de embeddings salvo em: '{output_path}'")
+    print("\n" + "=" * 50)
+    print("PROCESSO CONCLUÍDO COM SUCESSO!")
+    print("=" * 50)
 
 
 def main():
@@ -172,13 +241,17 @@ def main():
 
     # --- 4. Fase 4: Loop de Treinamento ---
     print("\n[FASE 4] Iniciando treinamento do modelo...")
-    train_model(model, pyg_data, optimizer, config.EPOCHS)
+    model, training_history = train_model(model, pyg_data, optimizer, config.EPOCHS)
 
     print("Treinamento finalizado.")
 
     # --- 5. Fase Final: Extração e Salvamento dos Resultados ---
     print("\n[FASE FINAL] Gerando e salvando resultados...")
     save_results(model, pyg_data, wsg_obj, config)
+
+    # Salvar relatório da execução
+    training_duration = sum(epoch_metrics["epoch"] for epoch_metrics in training_history)
+    save_report(config, training_history, training_duration, config.RESULTS_PATH)
 
 
 if __name__ == "__main__":
