@@ -54,7 +54,7 @@ def train_model(
     return model
 
 
-def save_results(model: VGAE, pyg_data: Data, wsg_obj: WSG, config: Config):
+def save_results(model: VGAE, pyg_data: Data, wsg_obj: WSG, config: Config, save_path: str = None):
     """
     Gera e salva os embeddings finais, o modelo e os metadados.
 
@@ -71,7 +71,7 @@ def save_results(model: VGAE, pyg_data: Data, wsg_obj: WSG, config: Config):
     final_embeddings = model.get_embeddings(pyg_data)
 
     # Salvar o estado do modelo treinado
-    model_path = os.path.join(config.OUTPUT_PATH, f"vgae_model_{config.TIMESTAMP}.pt")
+    model_path = os.path.join(save_path, "vgae_model.pt")
     torch.save(model.state_dict(), model_path)
     print(f"Modelo treinado salvo em: '{model_path}'")
 
@@ -113,16 +113,13 @@ def save_results(model: VGAE, pyg_data: Data, wsg_obj: WSG, config: Config):
         }
 
     # 3. Salvar o arquivo JSON final
-    output_filename = f"embeddings_output_{config.TIMESTAMP}.json"
-    output_path = os.path.join(config.OUTPUT_PATH, output_filename)
+    output_filename = "embeddings_output.json"
+    output_path = os.path.join(save_path, output_filename)
 
     with open(output_path, "w") as f:
-        json.dump(output_data, f)  # Sem indentação para economizar espaço
+        json.dump(output_data, f, indent=2) # Adicionada indentação para legibilidade
 
     print(f"Arquivo de saída de embeddings salvo em: '{output_path}'")
-    print("\n" + "=" * 50)
-    print("PROCESSO CONCLUÍDO COM SUCESSO!")
-    print("=" * 50)
 
 
 def main():

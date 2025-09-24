@@ -1,66 +1,89 @@
 import os
 import shutil
-from datetime import datetime
-from zoneinfo import ZoneInfo  # Importa a biblioteca para fusos horários
+from typing import Dict, Optional, List
+
+from src.config import Config
 
 
-class TrainingRunManager:
+class DirectoryManager:
     """
-    Gerencia a criação e o versionamento do diretório de saída para uma execução de treino.
+    Gerencia a criação e o nomeação de diretórios de saída para cada execução.
 
-    Cria um diretório temporário no início e o renomeia com a métrica final
-    após a conclusão.
+    Cria um diretório temporário no início da execução e o renomeia
+    no final com base nos resultados obtidos, garantindo uma organização
+    clara e sem conflitos.
     """
 
-    def __init__(self, base_output_dir: str, dataset_name: str):
+    def __init__(self, timestamp: str, base_path: Optional[str] = None, dataset_name: str = ""):
         """
-        Inicializa o gerenciador e cria o diretório temporário.
+        Inicializa o gerenciador e cria o diretório de execução temporário.
+
+        O nome do diretório temporário segue o padrão: _tmp__[timestamp]
 
         Args:
-            base_output_dir (str): O diretório base onde os resultados serão salvos (ex: 'data/output').
-            dataset_name (str): O nome do dataset sendo usado.
+            timestamp (str): O timestamp único da execução (ex: '08-09-2025_16-44-08').
+            base_path (Optional[str]): O caminho base para criar o diretório de execuções.
+                                       Se None, o padrão é 'data/output/RUNS/'.
         """
-        self.base_dir = base_output_dir
+        if base_path is None:
+            # Constrói o caminho padrão a partir da configuração
+            self.base_path = os.path.join(Config.OUTPUT_PATH, "RUNS")
+        else:
+            self.base_path = os.path.join(base_path, "RUNS")
+
+        self.timestamp = timestamp
         self.dataset_name = dataset_name
+        self.temp_dir_name = f"_tmp__{self.timestamp}"
+        self.run_dir_path = os.path.join(self.base_path, self.temp_dir_name)
+        self.final_dir_path: Optional[str] = None
 
-        # CORREÇÃO: Converte a hora UTC do container para o fuso horário de São Paulo.
-        utc_now = datetime.now(ZoneInfo("UTC"))
-        local_now = utc_now.astimezone(ZoneInfo("America/Sao_Paulo"))
-        self.timestamp = local_now.strftime("%d-%m-%Y_%H-%M-%S")
-
-        tmp_dir_name = f"_tmp_{self.dataset_name}__{self.timestamp}"
-        self.run_path = os.path.join(self.base_dir, tmp_dir_name)
-
-        os.makedirs(self.run_path, exist_ok=True)
-        print(f"Diretório de execução temporário criado em: '{self.run_path}'")
+        # Cria o diretório temporário, se não existir
+        os.makedirs(self.run_dir_path, exist_ok=True)
+        print(f"Diretório de execução temporário criado em: '{self.run_dir_path}'")
 
     def get_run_path(self) -> str:
-        """Retorna o caminho para o diretório da execução atual."""
-        return self.run_path
+        """Retorna o caminho do diretório da execução atual (seja temporário ou final)."""
+        return self.final_dir_path if self.final_dir_path else self.run_dir_path
 
-    def finalize(self, best_val_acc: float) -> str:
+    def finalize_run_directory(
+        self, dataset_name: str, metrics: Dict[str, float]
+    ) -> str:
         """
-        Renomeia o diretório temporário para o nome final, incluindo a acurácia.
+        Renomeia o diretório temporário para um nome final descritivo e informativo.
+
+        Exemplo de nome final: 'Cora__val_acc_0.83__08-09-2025_16-44-08'
 
         Args:
-            best_val_acc (float): A melhor acurácia de validação alcançada.
+            dataset_name (str): Nome do dataset utilizado (ex: 'Cora').
+            metrics (Dict[str, float]): Dicionário com métricas chave-valor (ex: {'val_acc': 0.83}).
 
         Returns:
-            str: O caminho final do diretório.
+            str: O caminho completo para o diretório final renomeado.
         """
-        if not os.path.exists(self.run_path):
+        if not os.path.exists(self.run_dir_path):
             print(
-                f"Aviso: Diretório temporário '{self.run_path}' não encontrado para finalizar."
+                f"Aviso: O diretório temporário '{self.run_dir_path}' não foi encontrado para renomear."
             )
             return ""
 
-        # Usa o timestamp da instância para garantir consistência.
-        final_dir_name = (
-            f"{self.dataset_name}__val_acc_{best_val_acc:.4f}__{self.timestamp}"
-        )
-        final_path = os.path.join(self.base_dir, final_dir_name)
+        metrics_str_parts: List[str] = [
+            f"{key}_{value:.4f}".replace(".", "_") for key, value in metrics.items()
+        ]
+        metrics_str = "__".join(metrics_str_parts)
 
-        os.rename(self.run_path, final_path)
+        # Constrói o nome final, omitindo a parte das métricas se estiver vazia
+        if metrics_str:
+            final_dir_name = f"{dataset_name}__{metrics_str}__{self.timestamp}"
+        else:
+            final_dir_name = f"{dataset_name}__{self.timestamp}"
 
-        self.run_path = final_path
+        final_path = os.path.join(self.base_path, final_dir_name)
+
+        # Renomeia o diretório
+        shutil.move(self.run_dir_path, final_path)
+
+        self.final_dir_path = final_path
+        self.run_dir_path = final_path  # Atualiza o caminho principal
+
+        print(f"Diretório da execução finalizado e renomeado para: '{final_path}'")
         return final_path

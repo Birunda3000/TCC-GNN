@@ -7,6 +7,7 @@ from src.data_loader import get_loader
 from src.data_converter import DataConverter
 from src.model import VGAE
 from src.train import train_model, save_results
+from src.directory_manager import DirectoryManager
 
 
 def main():
@@ -24,12 +25,16 @@ def main():
     print(f"Dispositivo de treinamento: {device}")
     print(f"Dataset selecionado: {config.DATASET_NAME}")
 
-    # --- 2. Pipeline de Dados (Loader -> WSG -> Converter -> PyG) ---
+    # --- 2. Pipeline de Dados (Loader -> WSG -> Converter -> PyG) e salvamento ---
     print("\n[FASE 1/2] Executando pipeline de dados...")
     loader = get_loader(config.DATASET_NAME)
     wsg_obj = loader.load()
     pyg_data = DataConverter.to_pyg_data(wsg_obj).to(device)
     print("Pipeline de dados concluído. Dados prontos para o modelo.")
+
+
+    directory_manager = DirectoryManager(timestamp=config.TIMESTAMP, base_path=config.OUTPUT_PATH, dataset_name=config.DATASET_NAME)
+
 
     # --- 3. Instanciação do Modelo e Otimizador ---
     print("\n[FASE 3] Construindo o modelo VGAE...")
@@ -50,10 +55,19 @@ def main():
 
     # --- 5. Extração e Salvamento dos Resultados ---
     print("\n[FASE FINAL] Gerando e salvando resultados...")
-    save_results(trained_model, pyg_data, wsg_obj, config)
+    run_path = directory_manager.get_run_path()
+    save_results(trained_model, pyg_data, wsg_obj, config, save_path=run_path)
+
+    # Finaliza o diretório de execução
+    # Como o VGAE é auto-supervisionado, não temos métricas de validação como 'val_acc'.
+    # O nome final do diretório será baseado apenas no nome do dataset e no timestamp.
+    final_path = directory_manager.finalize_run_directory(
+        dataset_name=config.DATASET_NAME, metrics={}
+    )
 
     print("\n" + "=" * 50)
     print("PROCESSO CONCLUÍDO COM SUCESSO!")
+    print(f"Resultados salvos em: '{final_path}'")
     print("=" * 50)
 
 

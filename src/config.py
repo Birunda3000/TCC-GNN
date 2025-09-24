@@ -1,59 +1,55 @@
 # src/config.py (versão atualizada)
-import torch
 import os
 from datetime import datetime
-import pytz
+from zoneinfo import ZoneInfo
 
 
 class Config:
     """
-    Classe para centralizar todas as configurações do projeto.
+    Classe centralizada para todas as configurações do projeto.
     """
 
-    # --- Configurações do Dispositivo ---
-    DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
+    # --- Timestamp da Execução ---
+    # Gera um timestamp único no momento da inicialização para identificar a execução.
+    # Usa o fuso horário de São Paulo para consistência.
+    TIMESTAMP = datetime.now(ZoneInfo("America/Sao_Paulo")).strftime(
+        "%d-%m-%Y_%H-%M-%S"
+    )
 
-    # --- Timestamp ---
-    TZ_INFO = pytz.timezone("America/Sao_Paulo")
-    TIMESTAMP = datetime.now(TZ_INFO).strftime("%Y%m%d_%H%M%S")
+    # --- Configurações do Ambiente ---
+    DEVICE = "cuda" if os.environ.get("NVIDIA_VISIBLE_DEVICES") else "cpu"
+    BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    DATA_DIR = os.path.join(BASE_DIR, "data")
+
+    # --- Caminhos de Saída ---
+    OUTPUT_PATH = os.path.join(DATA_DIR, "output")
 
     # --- Configurações do Dataset ---
-    DATASETS = ["cora", "musae-github", "musae-facebook"]
-    DATASET_NAME = DATASETS[1]
+    # Opções: "cora", "musae-github", "musae-facebook"
+    DATASET_NAME = "musae-github"
 
-    # --- Diretorios Base ---
-    ROOT_DIR = os.path.dirname(
-        os.path.dirname(os.path.abspath(__file__))
-    )  # Raiz do projeto gnn_tcc/
-    DATA_DIR = os.path.join(ROOT_DIR, "data", "datasets")
-    OUTPUT_DIR = os.path.join(ROOT_DIR, "data", "processed")
-    os.makedirs(OUTPUT_DIR, exist_ok=True)  # Garante que o diretório de saída exista
+    # --- Caminhos para os arquivos do Musae-Github ---
+    GITHUB_MUSAE_EDGES_PATH = os.path.join(
+        DATA_DIR, "datasets", "musae-github", "musae_git_edges.csv"
+    )
+    GITHUB_MUSAE_TARGET_PATH = os.path.join(
+        DATA_DIR, "datasets", "musae-github", "musae_git_target.csv"
+    )
+    GITHUB_MUSAE_FEATURES_PATH = os.path.join(
+        DATA_DIR, "datasets", "musae-github", "musae_git_features.json"
+    )
 
-    # --- Caminhos para os Arquivos Brutos ---
-    # Usaremos estes caminhos para carregar os dados manualmente.
-    # Cora
-    CORA_CONTENT_PATH = "data/datasets/cora/cora.content"
-    CORA_CITES_PATH = "data/datasets/cora/cora.cites"
-    # Musae-Github
-    GITHUB_MUSAE_EDGES_PATH = "data/datasets/musae-github/musae_git_edges.csv"
-    GITHUB_MUSAE_FEATURES_PATH = "data/datasets/musae-github/musae_git_features.json"
-    GITHUB_MUSAE_TARGET_PATH = "data/datasets/musae-github/musae_git_target.csv"
-
-    # --- Caminhos para os Arquivos Processados ---
-    OUTPUT_PATH = "data/output/"
-    EXPERIMENTS_LOG_PATH = os.path.join(OUTPUT_PATH, "RUNS/")
+    # --- Hiperparâmetros do Modelo VGAE ---
+    EMBEDDING_DIM = 128  # Dimensão do embedding das features de entrada
+    HIDDEN_DIM = 64  # Dimensão da camada GCN oculta
+    OUT_EMBEDDING_DIM = 32  # Dimensão do embedding final do nó
 
     # --- Configurações de Treinamento ---
-    SPLIT_RATIO = (0.7, 0.15, 0.15)  # Proporção para (Treino, Validação, Teste)
-    LEARNING_RATE = 0.001
     EPOCHS = 200
-    EMBEDDING_DIM = 128  # Dimensão inicial das features
-    HIDDEN_DIM = 64  # Dimensão da camada GCN oculta
-    OUT_EMBEDDING_DIM = 8  # Dimensão final dos embeddings
+    LEARNING_RATE = 0.01
 
     # --- Configurações de Visualização ---
-    VIS_SAMPLES = 50000
-    VIS_OUTPUT_FILENAME = "data/output/graph_visualization.png"
+    VIS_SAMPLES = 1500  # Número máximo de nós para incluir na visualização
 
 
 print(f"Configurações carregadas. Usando dispositivo: {Config.DEVICE}")
