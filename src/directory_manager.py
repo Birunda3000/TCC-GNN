@@ -14,25 +14,23 @@ class DirectoryManager:
     clara e sem conflitos.
     """
 
-    def __init__(self, timestamp: str, base_path: Optional[str] = None, dataset_name: str = ""):
+    def __init__(self, timestamp: str, run_folder_name: str, base_path: Optional[str] = None):
         """
         Inicializa o gerenciador e cria o diretório de execução temporário.
 
-        O nome do diretório temporário segue o padrão: _tmp__[timestamp]
-
         Args:
-            timestamp (str): O timestamp único da execução (ex: '08-09-2025_16-44-08').
+            timestamp (str): O timestamp único da execução.
+            run_folder_name (str): O nome do subdiretório para este tipo de execução
+                                   (ex: "EMBEDDING_RUNS", "CLASSIFICATION_RUNS").
             base_path (Optional[str]): O caminho base para criar o diretório de execuções.
-                                       Se None, o padrão é 'data/output/RUNS/'.
+                                       Se None, o padrão é 'data/output/'.
         """
         if base_path is None:
-            # Constrói o caminho padrão a partir da configuração
-            self.base_path = os.path.join(Config.OUTPUT_PATH, "RUNS")
-        else:
-            self.base_path = os.path.join(base_path, "RUNS")
+            base_path = Config.OUTPUT_PATH
+
+        self.base_path = os.path.join(base_path, run_folder_name)
 
         self.timestamp = timestamp
-        self.dataset_name = dataset_name
         self.temp_dir_name = f"_tmp__{self.timestamp}"
         self.run_dir_path = os.path.join(self.base_path, self.temp_dir_name)
         self.final_dir_path: Optional[str] = None

@@ -41,7 +41,10 @@ def main():
     print("Pipeline de dados concluído. Dados prontos para o modelo.")
 
 
-    directory_manager = DirectoryManager(timestamp=config.TIMESTAMP, base_path=config.OUTPUT_PATH, dataset_name=config.DATASET_NAME)
+    directory_manager = DirectoryManager(
+        timestamp=config.TIMESTAMP,
+        run_folder_name="EMBEDDING_RUNS"
+    )
 
 
     # --- 3. Instanciação do Modelo e Otimizador ---

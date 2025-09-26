@@ -43,11 +43,11 @@ class Config:
     # --- Hiperparâmetros do Modelo VGAE ---
     EMBEDDING_DIM = 128  # Dimensão do embedding das features de entrada
     HIDDEN_DIM = 128  # Dimensão da camada GCN oculta
-    OUT_EMBEDDING_DIM = 32  # Dimensão do embedding final do nó
+    OUT_EMBEDDING_DIM = 128  # Dimensão do embedding final do nó
 
     # --- Configurações de Treinamento ---
-    EPOCHS = 50
-    LEARNING_RATE = 0.001
+    EPOCHS = 2000
+    LEARNING_RATE = 0.0001
     # Gera uma semente aleatória baseada no tempo atual para garantir execuções
     # diferentes, mas a registra para permitir reprodutibilidade.
     RANDOM_SEED = int(time.time())

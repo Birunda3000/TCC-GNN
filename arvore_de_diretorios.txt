@@ -26,30 +26,15 @@ gnn_tcc/
 │   │       ├── musae_git_features.json
 │   │       └── musae_git_target.csv
 │   ├── output
-│   │   ├── Cora__val_acc_0.8202__08-09-2025_16-44-08
-│   │   │   ├── best_model.pth
-│   │   │   ├── run_parameters.txt
-│   │   │   └── training_history.csv
-│   │   ├── Cora__val_acc_0.8300__05-09-2025_16-31-24
-│   │   │   ├── best_model.pth
-│   │   │   ├── run_parameters.txt
-│   │   │   └── training_history.csv
-│   │   ├── Cora__val_acc_0.8300__08-09-2025_16-43-53
-│   │   │   ├── best_model.pth
-│   │   │   ├── run_parameters.txt
-│   │   │   └── training_history.csv
-│   │   ├── Cora__val_acc_0.8325__08-09-2025_16-50-52
-│   │   │   ├── best_model.pth
-│   │   │   ├── run_parameters.txt
-│   │   │   └── training_history.csv
-│   │   ├── Cora__val_acc_0.8374__05-09-2025_16-32-36
-│   │   │   ├── best_model.pth
-│   │   │   ├── run_parameters.txt
-│   │   │   └── training_history.csv
-│   │   └── Cora__val_acc_0.8399__05-09-2025_16-33-07
-│   │       ├── best_model.pth
-│   │       ├── run_parameters.txt
-│   │       └── training_history.csv
+│   │   └── RUNS
+│   │       ├── musae-github__loss_1_3709__emb_dim_32__24-09-2025_17-08-51
+│   │       │   ├── musae-github_embeddings.wsg.json
+│   │       │   ├── run_summary.txt
+│   │       │   └── vgae_model.pt
+│   │       └── musae-github__loss_1_3769__emb_dim_32__24-09-2025_15-15-32
+│   │           ├── musae-github_embeddings.wsg.json
+│   │           ├── run_summary.txt
+│   │           └── vgae_model.pt
 │   └── processed
 │       └── cora
 │           ├── cora_cites.csv
@@ -57,13 +42,19 @@ gnn_tcc/
 ├── src
 │   ├── __init__.py
 │   ├── config.py
-│   ├── convert_cora_to_csv.py
+│   ├── data_converter.py
+│   ├── data_format_definition.py
 │   ├── data_loader.py
 │   ├── directory_manager.py
 │   ├── model.py
-│   ├── utils.py
+│   ├── train.py
 │   └── visualization.py
 ├── .gitattributes
 ├── .gitignore
 ├── README.md
-└── requirements.txt
+├── github_embeddings_visualization_final.png
+├── github_embeddings_visualization_final_2d.png
+├── requirements.txt
+├── run_train.py
+├── test.py
+└── wsg_definition.txt
