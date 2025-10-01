@@ -42,8 +42,8 @@ class Config:
 
     # --- Hiperparâmetros do Modelo VGAE ---
     EMBEDDING_DIM = 128  # Dimensão do embedding das features de entrada
-    HIDDEN_DIM = 128  # Dimensão da camada GCN oculta
-    OUT_EMBEDDING_DIM = 128  # Dimensão do embedding final do nó
+    HIDDEN_DIM = 256  # Dimensão da camada GCN oculta
+    OUT_EMBEDDING_DIM = 64  # Dimensão do embedding final do nó variar [32,64,128]
 
     # --- Configurações de Treinamento ---
     EPOCHS = 2000

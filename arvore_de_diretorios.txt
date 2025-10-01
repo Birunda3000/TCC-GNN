@@ -26,21 +26,17 @@ gnn_tcc/
 │   │       ├── musae_git_features.json
 │   │       └── musae_git_target.csv
 │   ├── output
-│   │   └── RUNS
-│   │       ├── musae-github__loss_1_3709__emb_dim_32__24-09-2025_17-08-51
-│   │       │   ├── musae-github_embeddings.wsg.json
-│   │       │   ├── run_summary.txt
-│   │       │   └── vgae_model.pt
-│   │       └── musae-github__loss_1_3769__emb_dim_32__24-09-2025_15-15-32
-│   │           ├── musae-github_embeddings.wsg.json
-│   │           ├── run_summary.txt
-│   │           └── vgae_model.pt
+│   │   ├── CLASSIFICATION_RUNS
+│   │   └── EMBEDDING_RUNS
+│   │       ├── _tmp__01-10-2025_13-43-31
+│   │       └── _tmp__01-10-2025_13-56-10
 │   └── processed
 │       └── cora
 │           ├── cora_cites.csv
 │           └── cora_content.csv
 ├── src
 │   ├── __init__.py
+│   ├── classifiers.py
 │   ├── config.py
 │   ├── data_converter.py
 │   ├── data_format_definition.py
@@ -55,6 +51,6 @@ gnn_tcc/
 ├── github_embeddings_visualization_final.png
 ├── github_embeddings_visualization_final_2d.png
 ├── requirements.txt
-├── run_train.py
+├── run_embedding_generation.py
 ├── test.py
 └── wsg_definition.txt

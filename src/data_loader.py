@@ -25,6 +25,25 @@ class BaseDatasetLoader(ABC):
         """
         pass
 
+class DirectWSGLoader(BaseDatasetLoader):
+    """Carrega um dataset já no formato WSG a partir de um arquivo JSON local."""
+
+    def __init__(self, file_path: str):
+        self.file_path = file_path
+
+    def load(self) -> WSG:
+        """
+        Carrega o arquivo JSON e o valida como um objeto WSG.
+
+        Returns:
+            WSG: Um objeto Pydantic contendo o grafo completo e validado no formato WSG.
+        """
+        with open(self.file_path, "r") as f:
+            wsg_data: Dict[str, Any] = json.load(f)
+
+        # A instanciação do modelo Pydantic valida automaticamente a estrutura e os tipos.
+        wsg_object = WSG(**wsg_data)
+        return wsg_object
 
 class CoraLoader(BaseDatasetLoader):
     """Carrega o dataset Cora a partir de arquivos locais."""
