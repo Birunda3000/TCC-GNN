@@ -88,7 +88,7 @@ if __name__ == "__main__":
     print("\nColunas Numéricas para Anonimização:", numeric_columns[:5], "...")
 
     anonymizer = TabularLaplaceAnonymizer(
-        epsilon=15,
+        epsilon=0.01,
         numeric_columns=numeric_columns,
         bounds=bounds_dict,
         seed=config.RANDOM_SEED,
@@ -103,12 +103,14 @@ if __name__ == "__main__":
 
     # --- INÍCIO: TESTE DE CLASSIFICAÇÃO PARA COMPARAÇÃO ---
     from sklearn.model_selection import train_test_split
-    from sklearn.linear_model import LogisticRegression
+
+    # from sklearn.linear_model import LogisticRegression # Não é mais necessário
+    from sklearn.neighbors import KNeighborsClassifier  # Importa o KNN
     from sklearn.metrics import accuracy_score, f1_score
 
     def train_and_evaluate_classifier(df, feature_cols, target_col, dataset_name):
         """
-        Função auxiliar para treinar e avaliar um modelo de Regressão Logística.
+        Função auxiliar para treinar e avaliar um modelo KNN.
         """
         print(f"\n--- Treinando e Avaliando no Dataset: {dataset_name} ---")
 
@@ -121,8 +123,9 @@ if __name__ == "__main__":
             X, y, test_size=0.3, random_state=config.RANDOM_SEED, stratify=y
         )
 
-        # Inicializa e treina o modelo
-        model = LogisticRegression(max_iter=1000, random_state=config.RANDOM_SEED)
+        # Inicializa e treina o modelo KNN
+        # O KNN não usa random_state, mas é determinístico por natureza.
+        model = KNeighborsClassifier()
         model.fit(X_train, y_train)
 
         # Faz predições e avalia a performance
