@@ -14,7 +14,6 @@ from src.classifiers import MLPClassifier, GCNClassifier
 from src.train_loop import train_and_evaluate_sklearn_model, run_pytorch_classification
 from src.directory_manager import DirectoryManager
 
-
 def run_all_classifiers(wsg_obj, config):
     """
     Executa todos os classificadores e retorna um dicionário com os resultados.
