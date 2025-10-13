@@ -12,8 +12,22 @@ from sklearn.neighbors import KNeighborsClassifier
 # --- Importa nossas classes e utilitários customizados ---
 from src.config import Config
 from src.data_loader import DirectWSGLoader
-from src.classifiers import SklearnClassifier, MLPClassifier
+from src.classifiers import (
+    SklearnClassifier, 
+    MLPClassifier, 
+    XGBoostClassifier,
+    TransformerNetworkClassifier
+)
 from src.directory_manager import DirectoryManager
+
+# Verifica se XGBoost está disponível
+try:
+    import xgboost
+
+    XGBOOST_AVAILABLE = True
+except ImportError:
+    print("Aviso: XGBoost não está instalado. Executando sem o XGBoostClassifier.")
+    XGBOOST_AVAILABLE = False
 
 
 def save_classification_report(run_path, input_file, results, reports):
@@ -87,6 +101,32 @@ def main():
         ),
     ]
 
+    # Adiciona XGBoost se disponível
+    if XGBOOST_AVAILABLE:
+        models_to_run.append(
+            XGBoostClassifier(
+                config,
+                num_boost_round=100,  # Menos rounds para testes rápidos, aumente para melhor performance
+                max_depth=6,
+                learning_rate=0.1,
+            )
+        )
+    
+    # Adiciona o modelo pesado baseado em transformers
+    models_to_run.append(
+        TransformerNetworkClassifier(
+            config,
+            input_dim=input_dim,
+            hidden_dim=512,
+            output_dim=output_dim,
+            nhead=8,
+            num_layers=6,
+            dim_feedforward=2048,
+            dropout=0.1,
+            max_epochs=100  # Aumente para 200 para maior precisão, mas tempo de treino mais longo
+        )
+    )
+
     # --- 4. Iterar, Treinar e Avaliar cada modelo ---
     for model in models_to_run:
         acc, f1, train_time, report = model.train_and_evaluate(wsg_obj)
@@ -104,11 +144,14 @@ def main():
     print_summary_table(results, wsg_file_path, wsg_obj.metadata.feature_type)
 
     # --- 6. Finalizar Nome do Diretório ---
-    # Usa a acurácia do MLP como métrica principal para o nome da pasta
-    mlp_accuracy = results.get("MLPClassifier", {}).get("accuracy", 0.0)
+    # Usa a melhor acurácia como métrica principal para o nome da pasta
+    best_model = max(results.items(), key=lambda x: x[1]["accuracy"])
+    best_acc = best_model[1]["accuracy"]
+    best_model_name = best_model[0].lower()
+
     final_path = directory_manager.finalize_run_directory(
         dataset_name=f"{wsg_obj.metadata.dataset_name}_embeddings",
-        metrics={"mlp_acc": mlp_accuracy},
+        metrics={"best_acc": best_acc, "model": best_model_name},
     )
     print(f"\nProcesso concluído! Resultados salvos em: '{final_path}'")
 
