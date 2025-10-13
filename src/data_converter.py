@@ -1,10 +1,10 @@
 # src/data_converter.py
 
 import torch
-import itertools
 from torch_geometric.data import Data
 
 from src.data_format_definition import WSG
+
 
 class DataConverter:
     """
@@ -13,73 +13,97 @@ class DataConverter:
     """
 
     @staticmethod
-    def to_pyg_data(wsg_data: WSG) -> Data:
+    def to_pyg_data(wsg_obj: WSG) -> Data:
         """
-        Realiza a conversão de WSG para o formato de dados do PyTorch Geometric.
-
-        Este método:
-        1. Converte a estrutura do grafo (edge_index, y) para tensores.
-        2. Processa o dicionário `node_features` para criar os tensores
-           `feature_indices`, `feature_offsets` e `feature_weights`
-           necessários para a camada `nn.EmbeddingBag`.
-        3. Anexa metadados importantes ao objeto Data final.
-
-        Args:
-            wsg_data (WSG): O objeto de dados validado pelo Pydantic.
-
-        Returns:
-            Data: Um objeto torch_geometric.data.Data pronto para treinamento.
+        Converte um objeto WSG para um objeto torch_geometric.data.Data.
         """
         print("Convertendo objeto WSG para formato PyTorch Geometric...")
 
-        # --- 1. Converter Estrutura do Grafo ---
-        edge_index = torch.tensor(wsg_data.graph_structure.edge_index, dtype=torch.long)
+        # Extrai o edge_index - CORREÇÃO: Lida com diferentes formatos possíveis
+        edge_data = wsg_obj.graph_structure.edge_index
+        if isinstance(edge_data, list):
+            # Verifica o formato real dos dados
+            if len(edge_data) > 0:
+                first_item = edge_data[0]
+                if isinstance(first_item, list) and len(first_item) == 2:
+                    # Formato: [[src, dst], [src, dst], ...]
+                    edge_index = torch.tensor(edge_data, dtype=torch.long).t()
+                elif isinstance(first_item, int):
+                    # Formato: [src, dst, src, dst, ...] (lista plana)
+                    edge_index = (
+                        torch.tensor(edge_data, dtype=torch.long).view(-1, 2).t()
+                    )
+                else:
+                    # Tenta converter assumindo uma lista de pares
+                    try:
+                        edges = [[int(e[0]), int(e[1])] for e in edge_data]
+                        edge_index = torch.tensor(edges, dtype=torch.long).t()
+                    except (IndexError, TypeError):
+                        print(
+                            f"WARNING: Formato inesperado do edge_index. Primeira entrada: {first_item}"
+                        )
+                        # Fallback para um grafo vazio
+                        edge_index = torch.zeros((2, 0), dtype=torch.long)
+            else:
+                # Lista vazia
+                edge_index = torch.zeros((2, 0), dtype=torch.long)
+        else:
+            # Tenta tratar como um tipo iterável genérico
+            try:
+                edges = [[int(src), int(dst)] for src, dst in edge_data]
+                edge_index = torch.tensor(edges, dtype=torch.long).t()
+            except Exception as e:
+                print(f"ERROR: Não foi possível converter edge_index: {e}")
+                edge_index = torch.zeros((2, 0), dtype=torch.long)
 
-        # Converte labels, tratando valores None (comuns em nós de teste/validação)
-        # Usamos -1 como um valor padrão para labels ausentes.
-        y = torch.tensor(
-            [-1 if label is None else label for label in wsg_data.graph_structure.y],
-            dtype=torch.long,
+        # Processa as features dos nós
+        num_nodes = wsg_obj.metadata.num_nodes
+        feature_type = wsg_obj.metadata.feature_type
+
+        if feature_type == "sparse_binary":
+            # Para features esparsas, usa índices para criar um tensor one-hot
+            num_features = wsg_obj.metadata.num_total_features
+            x = torch.zeros((num_nodes, num_features), dtype=torch.float)
+            for node_id, feature in wsg_obj.node_features.items():
+                indices = feature.indices
+                node_idx = int(node_id)
+                x[node_idx, indices] = 1.0
+        else:  # dense_continuous
+            # Para features densas (embeddings), diretamente usa os pesos
+            feature_dim = len(next(iter(wsg_obj.node_features.values())).weights)
+            x = torch.zeros((num_nodes, feature_dim), dtype=torch.float)
+            for node_id, feature in wsg_obj.node_features.items():
+                node_idx = int(node_id)
+                x[node_idx] = torch.tensor(feature.weights, dtype=torch.float)
+
+        # Extrai os rótulos (y)
+        y_list = wsg_obj.graph_structure.y
+
+        # Lida com possíveis valores None nos rótulos
+        valid_indices = [i for i, y_val in enumerate(y_list) if y_val is not None]
+        valid_y = [y_list[i] for i in valid_indices]
+
+        if not valid_y:
+            raise ValueError("Nenhum rótulo válido encontrado no objeto WSG.")
+
+        y = torch.tensor([int(label) for label in valid_y], dtype=torch.long)
+
+        # Cria máscaras para treino/teste
+        train_mask = torch.zeros(num_nodes, dtype=torch.bool)
+        test_mask = torch.zeros(num_nodes, dtype=torch.bool)
+
+        from sklearn.model_selection import train_test_split
+
+        train_idx, test_idx = train_test_split(
+            valid_indices, train_size=0.8, random_state=42
         )
 
-        # --- 2. Processar Features para EmbeddingBag ---
-        num_nodes = wsg_data.metadata.num_nodes
-        
-        # Listas para agregar dados de todos os nós
-        all_indices = []
-        all_weights = []
-        offsets = [0]  # O primeiro offset é sempre 0
+        train_mask[train_idx] = True
+        test_mask[test_idx] = True
 
-        # Itera de 0 a N-1 para garantir a ordem correta
-        for i in range(num_nodes):
-            node_id_str = str(i)
-            node_feat = wsg_data.node_features[node_id_str]
-            
-            all_indices.extend(node_feat.indices)
-            all_weights.extend(node_feat.weights)
-            # O próximo offset é o offset atual + o número de features deste nó
-            offsets.append(offsets[-1] + len(node_feat.indices))
-        
-        # Remove o último offset, que é apenas o comprimento total
-        offsets.pop()
-
-        feature_indices = torch.tensor(all_indices, dtype=torch.long)
-        feature_weights = torch.tensor(all_weights, dtype=torch.float)
-        feature_offsets = torch.tensor(offsets, dtype=torch.long)
-
-        # --- 3. Montar o Objeto Data ---
-        pyg_data = Data(
-            edge_index=edge_index,
-            y=y,
-            feature_indices=feature_indices,
-            feature_offsets=feature_offsets,
-            feature_weights=feature_weights,
-            num_nodes=num_nodes,
+        data = Data(
+            x=x, edge_index=edge_index, y=y, train_mask=train_mask, test_mask=test_mask
         )
-        
-        # Anexamos metadados importantes para fácil acesso durante a instanciação do modelo
-        pyg_data.num_total_features = wsg_data.metadata.num_total_features
-        pyg_data.dataset_name = wsg_data.metadata.dataset_name
 
         print("Conversão concluída com sucesso.")
-        return pyg_data
+        return data
