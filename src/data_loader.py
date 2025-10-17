@@ -25,6 +25,7 @@ class BaseDatasetLoader(ABC):
         """
         pass
 
+
 class DirectWSGLoader(BaseDatasetLoader):
     """Carrega um dataset já no formato WSG a partir de um arquivo JSON local."""
 
@@ -45,6 +46,7 @@ class DirectWSGLoader(BaseDatasetLoader):
         wsg_object = WSG(**wsg_data)
         return wsg_object
 
+
 class CoraLoader(BaseDatasetLoader):
     """Carrega o dataset Cora a partir de arquivos locais."""
 
@@ -63,6 +65,7 @@ class CoraLoader(BaseDatasetLoader):
 
 # Em src/data_loader.py
 import itertools
+
 
 class MusaeGithubLoader(BaseDatasetLoader):
     """Carrega o dataset Musae-Github a partir de arquivos locais."""
@@ -170,3 +173,18 @@ def get_loader(dataset_name: str) -> BaseDatasetLoader:
         raise ValueError(
             f"Loader para o dataset '{dataset_name}' não foi implementado."
         )
+
+
+def save_wsg(wsg_obj: WSG, file_path: str):
+    """
+    Salva um objeto WSG em um arquivo JSON no caminho especificado.
+
+    Args:
+        wsg_obj (WSG): O objeto Pydantic WSG a ser salvo.
+        file_path (str): O caminho completo do arquivo onde o JSON será salvo.
+    """
+    print(f"Salvando objeto WSG em '{file_path}'...")
+    with open(file_path, "w") as f:
+        # O método model_dump() converte o objeto Pydantic para um dicionário Python
+        json.dump(wsg_obj.model_dump(), f, indent=4)
+    print("Objeto WSG salvo com sucesso.")
