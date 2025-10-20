@@ -92,3 +92,5 @@ class DirectoryManager:
 
         print(f"Diretório da execução finalizado e renomeado para: '{final_path}'")
         return final_path
+    
+    

@@ -1,3 +1,6 @@
+'''
+Importa as bibliotecas necessárias para a construção de modelos de classificação. Para os embeddings.
+'''
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
