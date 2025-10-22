@@ -1,6 +1,7 @@
 import os
 import shutil
-from typing import Dict, Optional, List, Union
+from typing import Dict, Optional, List, Union, Any
+import json
 
 from src.config import Config
 
@@ -92,5 +93,40 @@ class DirectoryManager:
 
         print(f"Diretório da execução finalizado e renomeado para: '{final_path}'")
         return final_path
+
+def save_classification_report(
+    run_path: str, 
+    input_file: str, 
+    results: Dict[str, Any], 
+    reports: Dict[str, Any]
+):
+    """Salva um relatório consolidado em formato JSON."""
+    summary = {
+        "input_wsg_file": input_file,
+        "classification_results": results,
+        "detailed_reports": reports,
+    }
+    report_path = os.path.join(run_path, "classification_summary.json")
+    with open(report_path, "w") as f:
+        json.dump(summary, f, indent=4)
+    print(f"\nRelatório de classificação salvo em: '{report_path}'")
     
-    
+def print_summary_table(
+    results: Dict[str, Any], 
+    input_file_path: str, 
+    feature_type: str
+):
+    """Imprime a tabela de resumo dos resultados no console."""
+    print("\n" + "=" * 65)
+    print("RELATÓRIO DE COMPARAÇÃO FINAL".center(65))
+    print("-" * 65)
+    print(f"Fonte dos Dados: {os.path.basename(input_file_path)}")
+    print(f"Tipo de Feature: {feature_type}")
+    print("-" * 65)
+    print(f"{'Modelo':<25} | {'Acurácia':<12} | {'F1-Score':<12} | {'Tempo (s)':<10}")
+    print("=" * 65)
+    for name, metrics in results.items():
+        print(
+            f"{name:<25} | {metrics['accuracy']:<12.4f} | {metrics['f1_score_weighted']:<12.4f} | {metrics['training_time_seconds']:<10.2f}"
+        )
+    print("=" * 65)

@@ -18,7 +18,7 @@ from src.classifiers import (
     XGBoostClassifier,
     TransformerNetworkClassifier
 )
-from src.directory_manager import DirectoryManager
+from src.directory_manager import DirectoryManager, print_summary_table, save_classification_report
 
 # Verifica se XGBoost está disponível
 try:
@@ -28,36 +28,6 @@ try:
 except ImportError:
     print("Aviso: XGBoost não está instalado. Executando sem o XGBoostClassifier.")
     XGBOOST_AVAILABLE = False
-
-
-def save_classification_report(run_path, input_file, results, reports):
-    """Salva um relatório consolidado em formato JSON."""
-    summary = {
-        "input_wsg_file": input_file,
-        "classification_results": results,
-        "detailed_reports": reports,
-    }
-    report_path = os.path.join(run_path, "classification_summary.json")
-    with open(report_path, "w") as f:
-        json.dump(summary, f, indent=4)
-    print(f"\nRelatório de classificação salvo em: '{report_path}'")
-
-
-def print_summary_table(results, input_file_path, feature_type):
-    """Imprime a tabela de resumo dos resultados no console."""
-    print("\n" + "=" * 65)
-    print("RELATÓRIO DE COMPARAÇÃO FINAL".center(65))
-    print("-" * 65)
-    print(f"Fonte dos Dados: {os.path.basename(input_file_path)}")
-    print(f"Tipo de Feature: {feature_type}")
-    print("-" * 65)
-    print(f"{'Modelo':<25} | {'Acurácia':<12} | {'F1-Score':<12} | {'Tempo (s)':<10}")
-    print("=" * 65)
-    for name, metrics in results.items():
-        print(
-            f"{name:<25} | {metrics['accuracy']:<12.4f} | {metrics['f1_score_weighted']:<12.4f} | {metrics['training_time_seconds']:<10.2f}"
-        )
-    print("=" * 65)
 
 
 def main():
@@ -111,21 +81,6 @@ def main():
                 learning_rate=0.1,
             )
         )
-    
-    # Adiciona o modelo pesado baseado em transformers
-    models_to_run.append(
-        TransformerNetworkClassifier(
-            config,
-            input_dim=input_dim,
-            hidden_dim=512,
-            output_dim=output_dim,
-            nhead=8,
-            num_layers=6,
-            dim_feedforward=2048,
-            dropout=0.1,
-            max_epochs=100  # Aumente para 200 para maior precisão, mas tempo de treino mais longo
-        )
-    )
 
     # --- 4. Iterar, Treinar e Avaliar cada modelo ---
     for model in models_to_run:

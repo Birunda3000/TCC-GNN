@@ -8,56 +8,31 @@ from src.config import Config
 from src.data_loader import get_loader
 from src.classifiers import GCNClassifier, GATClassifier
 from src.directory_manager import DirectoryManager
-
-
-def save_classification_report(run_path, dataset_name, results, reports):
-    """Salva um relatório consolidado em formato JSON."""
-    summary = {
-        "dataset": dataset_name,
-        "classification_results": results,
-        "detailed_reports": reports,
-    }
-    report_path = os.path.join(run_path, "graph_classification_summary.json")
-    with open(report_path, "w") as f:
-        json.dump(summary, f, indent=4)
-    print(f"\nRelatório de classificação de grafo salvo em: '{report_path}'")
-
-
-def print_summary_table(results, dataset_name):
-    """Imprime a tabela de resumo dos resultados no console."""
-    print("\n" + "=" * 65)
-    print("RELATÓRIO DE CLASSIFICAÇÃO DE GRAFO (FIM-A-FIM)".center(65))
-    print("-" * 65)
-    print(f"Dataset: {dataset_name}")
-    print("-" * 65)
-    print(f"{'Modelo':<25} | {'Acurácia':<12} | {'F1-Score':<12} | {'Tempo (s)':<10}")
-    print("=" * 65)
-    for name, metrics in results.items():
-        print(
-            f"{name:<25} | {metrics['accuracy']:<12.4f} | {metrics['f1_score_weighted']:<12.4f} | {metrics['training_time_seconds']:<10.2f}"
-        )
-    print("=" * 65)
+from src.data_converter import DataConverter
 
 
 def main():
     # --- 1. Configuração Inicial ---
     config = Config()
+    # device = torch.device(config.DEVICE) # O dispositivo é gerenciado dentro de cada classificador
+
+    # Aplica a semente de aleatoriedade para reprodutibilidade
     torch.manual_seed(config.RANDOM_SEED)
     np.random.seed(config.RANDOM_SEED)
     random.seed(config.RANDOM_SEED)
 
     print("=" * 65, "\nINICIANDO TAREFA DE CLASSIFICAÇÃO DE GRAFO (FIM-A-FIM)")
-    print(f"Dataset: {config.DATASET_NAME}\n", "=" * 65)
+    print(f"Dataset de entrada: {config.DATASET_NAME}\n", "=" * 65)
 
     # --- 2. Carregar Dados e Preparar Ambiente ---
-    # **DIFERENÇA CHAVE**: Carrega o dataset original, não um embedding.
     loader = get_loader(config.DATASET_NAME)
     wsg_obj = loader.load()
+    # A conversão para PyG é feita dentro de cada classificador GNN
 
     directory_manager = DirectoryManager(
         timestamp=config.TIMESTAMP, run_folder_name="GRAPH_CLASSIFICATION_RUNS"
     )
-    run_path = directory_manager.get_run_path()
+    # run_path não é mais necessário aqui, pois é gerenciado internamente
 
     results = {}
     reports = {}
@@ -68,7 +43,6 @@ def main():
     # A dimensão de saída é o número de classes únicas
     output_dim = len(set(y for y in wsg_obj.graph_structure.y if y is not None))
 
-    # **DIFERENÇA CHAVE**: Instancia modelos GNN que usam a estrutura do grafo.
     models_to_run = [
         GCNClassifier(
             config, input_dim=input_dim, hidden_dim=128, output_dim=output_dim
@@ -90,19 +64,29 @@ def main():
         if report:
             reports[f"{model.model_name}_classification_report"] = report
 
-    # --- 5. Salvar e Exibir Resultados ---
-    save_classification_report(run_path, config.DATASET_NAME, results, reports)
-    print_summary_table(results, config.DATASET_NAME)
+    # --- 5. Salvar e Exibir Resultados usando DirectoryManager ---
+    directory_manager.save_classification_report(
+        input_file=config.DATASET_NAME, results=results, reports=reports
+    )
+    directory_manager.print_summary_table(
+        results=results,
+        input_file_path=config.DATASET_NAME,
+        feature_type=wsg_obj.metadata.feature_type,
+    )
 
     # --- 6. Finalizar Nome do Diretório ---
-    best_model = max(results.items(), key=lambda x: x[1]["accuracy"])
-    best_acc = best_model[1]["accuracy"]
+    if results:
+        best_model = max(results.items(), key=lambda x: x[1]["accuracy"])
+        best_acc = best_model[1]["accuracy"]
+        best_model_name = best_model[0].lower().replace("classifier", "")
 
-    final_path = directory_manager.finalize_run_directory(
-        dataset_name=config.DATASET_NAME,
-        metrics={"best_acc": best_acc},
-    )
-    print(f"\nProcesso concluído! Resultados salvos em: '{final_path}'")
+        final_path = directory_manager.finalize_run_directory(
+            dataset_name=wsg_obj.metadata.dataset_name,
+            metrics={"best_acc": best_acc, "model": best_model_name},
+        )
+        print(f"\nProcesso concluído! Resultados salvos em: '{final_path}'")
+    else:
+        print("\nNenhum resultado para finalizar o diretório.")
 
 
 if __name__ == "__main__":
