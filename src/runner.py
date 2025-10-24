@@ -22,8 +22,15 @@ class ExperimentRunner:
 
     def run(self, models_to_run: List[BaseClassifier]):
         """Executa o pipeline de treinamento e avaliação para uma lista de modelos."""
+        # Obter o caminho do diretório da execução atual
+        run_path = self.directory_manager.get_run_path()
+
         for model in models_to_run:
-            acc, f1, train_time, report = model.train_and_evaluate(self.wsg_obj)
+            # Passar o caminho para o método de treino e avaliação
+            acc, f1, train_time, report = model.train_and_evaluate(
+                self.wsg_obj, save_path=run_path
+            )
+
             self.results[model.model_name] = {
                 "accuracy": acc,
                 "f1_score_weighted": f1,

@@ -27,45 +27,56 @@ gnn_tcc/
 │   │       └── musae_git_target.csv
 │   ├── output
 │   │   ├── CLASSIFICATION_RUNS
-│   │   └── EMBEDDING_RUNS
-│   │       ├── _tmp__01-10-2025_13-43-31
-│   │       ├── musae-github__loss_0_9483__emb_dim_32__01-10-2025_14-58-11
-│   │       │   ├── musae-github_embeddings.wsg.json
-│   │       │   ├── run_summary.txt
-│   │       │   └── vgae_model.pt
-│   │       ├── musae-github__loss_0_9487__emb_dim_64__01-10-2025_15-30-48
-│   │       │   ├── musae-github_embeddings.wsg.json
-│   │       │   ├── run_summary.txt
-│   │       │   └── vgae_model.pt
-│   │       ├── musae-github__loss_0_9542__emb_dim_128__01-10-2025_13-56-10
-│   │       │   ├── musae-github_embeddings.wsg.json
-│   │       │   ├── run_summary.txt
-│   │       │   └── vgae_model.pt
-│   │       └── musae-github__loss_0_9483__emb_dim_32__01-10-2025_14-58-11.zip
+│   │   │   ├── Musae-Github-Embeddings_embeddings__best_acc_0_8525__model_mlpclassifier__13-10-2025_15-05-58
+│   │   │   │   └── classification_summary.json
+│   │   │   ├── Musae-Github-Embeddings_embeddings__best_acc_0_8540__model_mlpclassifier__13-10-2025_15-17-12
+│   │   │   │   └── classification_summary.json
+│   │   │   └── Musae-Github-Embeddings_embeddings__mlp_acc_0_8534__13-10-2025_14-38-33
+│   │   │       └── classification_summary.json
+│   │   ├── EMBEDDING_RUNS
+│   │   │   ├── _tmp__01-10-2025_13-43-31
+│   │   │   ├── musae-github__loss_0_9483__emb_dim_32__01-10-2025_14-58-11
+│   │   │   │   ├── musae-github_embeddings.wsg.json
+│   │   │   │   ├── run_summary.txt
+│   │   │   │   └── vgae_model.pt
+│   │   │   ├── musae-github__loss_0_9487__emb_dim_64__01-10-2025_15-30-48
+│   │   │   │   ├── musae-github_embeddings.wsg.json
+│   │   │   │   ├── run_summary.txt
+│   │   │   │   └── vgae_model.pt
+│   │   │   ├── musae-github__loss_0_9542__emb_dim_128__01-10-2025_13-56-10
+│   │   │   │   ├── musae-github_embeddings.wsg.json
+│   │   │   │   ├── run_summary.txt
+│   │   │   │   └── vgae_model.pt
+│   │   │   └── musae-github__loss_0_9483__emb_dim_32__01-10-2025_14-58-11.zip
+│   │   └── GRAPH_CLASSIFICATION_RUNS
 │   └── processed
 │       └── cora
 │           ├── cora_cites.csv
 │           └── cora_content.csv
 ├── src
 │   ├── __init__.py
-│   ├── anon.py
 │   ├── classifiers.py
 │   ├── config.py
 │   ├── data_converter.py
 │   ├── data_format_definition.py
 │   ├── data_loader.py
 │   ├── directory_manager.py
+│   ├── graph_classifiers.py
 │   ├── model.py
+│   ├── runner.py
 │   ├── train.py
-│   ├── train_loop.py
 │   └── visualization.py
 ├── .gitattributes
 ├── .gitignore
 ├── README.md
+├── analise.py
+├── distribuicao_classes.png
+├── distribuicao_embeddings.png
+├── distribuicao_graus.png
 ├── github_embeddings_visualization_final.png
 ├── github_embeddings_visualization_final_2d.png
 ├── requirements.txt
 ├── run_embedding_generation.py
 ├── run_feature_classification.py
-├── test.py
+├── run_graph_classification.py
 └── wsg_definition.txt

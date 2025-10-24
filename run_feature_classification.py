@@ -9,7 +9,7 @@ from sklearn.neighbors import KNeighborsClassifier
 from src.config import Config
 from src.data_loader import DirectWSGLoader
 from src.classifiers import SklearnClassifier, MLPClassifier, XGBoostClassifier
-from src.runner import ExperimentRunner  # <-- Importa a nova classe
+from src.runner import ExperimentRunner
 
 try:
     import xgboost

@@ -1,15 +1,16 @@
-'''
+"""
 Importa as bibliotecas necessárias para a construção de modelos de classificação. Para os embeddings.
-'''
+"""
+
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 import torch.optim as optim
 import numpy as np
 import time
+import os  # Adicionar import
 from abc import ABC, abstractmethod
 from tqdm import tqdm
-import math
+from joblib import dump  # Adicionar import para salvar modelos sklearn
 
 from torch_geometric.nn import GCNConv, GATConv
 from sklearn.linear_model import LogisticRegression
@@ -20,7 +21,6 @@ from sklearn.base import clone
 from sklearn.preprocessing import StandardScaler
 from sklearn.neural_network import MLPRegressor
 import itertools
-from joblib import Parallel, delayed
 from torch.nn import TransformerEncoder, TransformerEncoderLayer
 
 # Importação do XGBoost
@@ -48,9 +48,10 @@ class BaseClassifier(ABC):
         self.model_name = self.__class__.__name__
 
     @abstractmethod
-    def train_and_evaluate(self, wsg_obj: WSG):
+    def train_and_evaluate(self, wsg_obj: WSG, save_path: str = None):
         """
         Orquestra o processo de treinamento e avaliação para o modelo.
+        Se save_path for fornecido, o modelo treinado deve ser salvo nesse diretório.
         Deve retornar: (acurácia, f1_score, tempo_de_treino, relatório_detalhado)
         """
         pass
@@ -67,7 +68,7 @@ class SklearnClassifier(BaseClassifier):
         except TypeError:
             self.model = model_class(**model_params)
 
-    def train_and_evaluate(self, wsg_obj: WSG):
+    def train_and_evaluate(self, wsg_obj: WSG, save_path: str = None):
         print(f"\n--- Avaliando (Sklearn): {self.model_name} ---")
 
         pyg_data = DataConverter.to_pyg_data(wsg_obj)
@@ -81,6 +82,14 @@ class SklearnClassifier(BaseClassifier):
         start_time = time.time()
         self.model.fit(X_train, y_train)
         train_time = time.time() - start_time
+
+        # --- LÓGICA DE SALVAMENTO ---
+        if save_path:
+            model_filename = f"{self.model_name.lower()}.joblib"
+            model_save_path = os.path.join(save_path, model_filename)
+            dump(self.model, model_save_path)
+            print(f"Modelo salvo em: '{model_save_path}'")
+        # --- FIM DA LÓGICA DE SALVAMENTO ---
 
         y_pred = self.model.predict(X_test)
 
@@ -141,7 +150,9 @@ class PyTorchClassifier(BaseClassifier, nn.Module):
 
         return acc, f1, report
 
-    def _train_and_evaluate_internal(self, wsg_obj: WSG, use_gnn: bool):
+    def _train_and_evaluate_internal(
+        self, wsg_obj: WSG, use_gnn: bool, save_path: str = None
+    ):
         print(f"\n--- Avaliando (PyTorch): {self.model_name} ---")
         device = torch.device(self.config.DEVICE)
         self.to(device)
@@ -163,6 +174,14 @@ class PyTorchClassifier(BaseClassifier, nn.Module):
 
         train_time = time.time() - start_time
 
+        # --- LÓGICA DE SALVAMENTO ---
+        if save_path:
+            model_filename = f"{self.model_name.lower()}.pt"
+            model_save_path = os.path.join(save_path, model_filename)
+            torch.save(self.state_dict(), model_save_path)
+            print(f"Modelo salvo em: '{model_save_path}'")
+        # --- FIM DA LÓGICA DE SALVAMENTO ---
+
         acc, f1, report = self._test_step(data, use_gnn)
         return acc, f1, train_time, report
 
@@ -182,8 +201,10 @@ class MLPClassifier(PyTorchClassifier):
         x = F.relu(self.fc1(x))
         return self.fc2(x)
 
-    def train_and_evaluate(self, wsg_obj: WSG):
-        return self._train_and_evaluate_internal(wsg_obj, use_gnn=False)
+    def train_and_evaluate(self, wsg_obj: WSG, save_path: str = None):
+        return self._train_and_evaluate_internal(
+            wsg_obj, use_gnn=False, save_path=save_path
+        )
 
 
 class GCNClassifier(PyTorchClassifier):
@@ -199,8 +220,10 @@ class GCNClassifier(PyTorchClassifier):
         x = F.dropout(x, p=0.5, training=self.training)
         return self.conv2(x, edge_index)
 
-    def train_and_evaluate(self, wsg_obj: WSG):
-        return self._train_and_evaluate_internal(wsg_obj, use_gnn=True)
+    def train_and_evaluate(self, wsg_obj: WSG, save_path: str = None):
+        return self._train_and_evaluate_internal(
+            wsg_obj, use_gnn=True, save_path=save_path
+        )
 
 
 class GATClassifier(PyTorchClassifier):
@@ -219,8 +242,10 @@ class GATClassifier(PyTorchClassifier):
         x = F.dropout(x, p=0.6, training=self.training)
         return self.conv2(x, edge_index)
 
-    def train_and_evaluate(self, wsg_obj: WSG):
-        return self._train_and_evaluate_internal(wsg_obj, use_gnn=True)
+    def train_and_evaluate(self, wsg_obj: WSG, save_path: str = None):
+        return self._train_and_evaluate_internal(
+            wsg_obj, use_gnn=True, save_path=save_path
+        )
 
 
 class XGBoostClassifier(BaseClassifier):
@@ -255,7 +280,7 @@ class XGBoostClassifier(BaseClassifier):
         self.num_boost_round = num_boost_round
         self.model = None
 
-    def train_and_evaluate(self, wsg_obj: WSG):
+    def train_and_evaluate(self, wsg_obj: WSG, save_path: str = None):
         print(f"\n--- Avaliando (XGBoost): {self.model_name} ---")
         print(
             "Este modelo pode levar mais tempo para treinar, mas geralmente oferece excelente desempenho."
@@ -293,6 +318,14 @@ class XGBoostClassifier(BaseClassifier):
         )
 
         train_time = time.time() - start_time
+
+        # --- LÓGICA DE SALVAMENTO ---
+        if save_path:
+            model_filename = f"{self.model_name.lower()}.json"
+            model_save_path = os.path.join(save_path, model_filename)
+            self.model.save_model(model_save_path)
+            print(f"Modelo salvo em: '{model_save_path}'")
+        # --- FIM DA LÓGICA DE SALVAMENTO ---
 
         # Fazer predições
         y_pred_probs = self.model.predict(dtest)
