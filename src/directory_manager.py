@@ -64,21 +64,23 @@ class DirectoryManager:
         self, results: Dict[str, Any], input_file_path: str, feature_type: str
     ):
         """Imprime a tabela de resumo dos resultados no console."""
-        print("\n" + "=" * 65)
-        print("RELATÓRIO DE COMPARAÇÃO FINAL".center(65))
-        print("-" * 65)
+        print("\n" + "=" * 95)  # Aumenta o tamanho da tabela
+        print("RELATÓRIO DE COMPARAÇÃO FINAL".center(95))
+        print("-" * 95)
         print(f"Fonte dos Dados: {os.path.basename(input_file_path)}")
         print(f"Tipo de Feature: {feature_type}")
-        print("-" * 65)
+        print("-" * 95)
+        # Adiciona as novas colunas de memória
         print(
-            f"{'Modelo':<25} | {'Acurácia':<12} | {'F1-Score':<12} | {'Tempo (s)':<10}"
+            f"{'Modelo':<25} | {'Acurácia':<12} | {'F1-Score':<12} | {'Tempo (s)':<10} | {'Pico RAM (MB)':<15} | {'Pico VRAM (MB)':<15}"
         )
-        print("=" * 65)
+        print("=" * 95)
         for name, metrics in results.items():
             print(
-                f"{name:<25} | {metrics['accuracy']:<12.4f} | {metrics['f1_score_weighted']:<12.4f} | {metrics['training_time_seconds']:<10.2f}"
+                f"{name:<25} | {metrics['accuracy']:<12.4f} | {metrics['f1_score_weighted']:<12.4f} | {metrics['training_time_seconds']:<10.2f} | "
+                f"{metrics['peak_ram_mb']:<15.2f} | {metrics['peak_vram_mb']:<15.2f}"
             )
-        print("=" * 65)
+        print("=" * 95)
 
     def finalize_run_directory(
         self,

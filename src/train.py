@@ -73,6 +73,7 @@ def save_report(
     training_history: List[Dict[str, float]],
     training_duration: float,
     inference_duration: float,
+    memory_metrics: Dict[str, float],  # <-- Adiciona o novo parâmetro
     save_path: str,
 ):
     """
@@ -83,6 +84,7 @@ def save_report(
         training_history (List[Dict[str, float]]): O histórico de métricas do treinamento.
         training_duration (float): O tempo total de treinamento em segundos.
         inference_duration (float): O tempo total da inferência em segundos.
+        memory_metrics (Dict[str, float]): Métricas de uso de memória durante o treinamento.
         save_path (str): O caminho do diretório onde o relatório será salvo.
     """
     final_metrics = training_history[-1]
@@ -111,10 +113,15 @@ HIPERPARÂMETROS
 - Dimensão da Camada Oculta (GCN): {config.HIDDEN_DIM}
 - Dimensão do Embedding de Features: {config.EMBEDDING_DIM}
 
-RESULTADOS FINAIS
------------------
+MÉTRICAS DE PERFORMANCE
+-----------------------
 - Tempo Total de Treinamento: {training_duration:.2f} segundos
 - Tempo de Inferência (gerar embeddings): {inference_duration:.4f} segundos
+- Pico de Memória RAM (Treino): {memory_metrics['peak_ram_mb']:.2f} MB
+- Pico de Memória VRAM (Treino): {memory_metrics['peak_vram_mb']:.2f} MB
+
+RESULTADOS FINAIS
+-----------------
 - Loss Total Final: {final_metrics['total_loss']:.6f}
 - Loss de Reconstrução Final: {final_metrics['recon_loss']:.6f}
 - Loss KL Final: {final_metrics['kl_loss']:.6f}

@@ -11,6 +11,7 @@ from src.data_converter import DataConverter
 from src.model import VGAE
 from src.train import train_model, save_results, save_report
 from src.directory_manager import DirectoryManager
+from src.memory_utils import MemoryTracker
 
 
 def main():
@@ -40,12 +41,9 @@ def main():
     pyg_data = DataConverter.to_pyg_data(wsg_obj).to(device)
     print("Pipeline de dados concluído. Dados prontos para o modelo.")
 
-
     directory_manager = DirectoryManager(
-        timestamp=config.TIMESTAMP,
-        run_folder_name="EMBEDDING_RUNS"
+        timestamp=config.TIMESTAMP, run_folder_name="EMBEDDING_RUNS"
     )
-
 
     # --- 3. Instanciação do Modelo e Otimizador ---
     print("\n[FASE 3] Construindo o modelo VGAE...")
@@ -61,11 +59,21 @@ def main():
 
     # --- 4. Loop de Treinamento ---
     print("\n[FASE 4] Iniciando treinamento do modelo...")
+
+    # Instancia o rastreador de memória
+    mem_tracker = MemoryTracker()
+
+    # Mede o tempo e a memória do treinamento
     start_time = time.time()
-    trained_model, training_history = train_model(model, pyg_data, optimizer, config.EPOCHS)
+    (trained_model, training_history), mem_metrics = mem_tracker.track(
+        train_model, model, pyg_data, optimizer, config.EPOCHS
+    )
     end_time = time.time()
+
     training_duration = end_time - start_time
     print(f"Treinamento finalizado em {training_duration:.2f} segundos.")
+    print(f"Pico de uso de RAM durante o treino: {mem_metrics['peak_ram_mb']:.2f} MB")
+    print(f"Pico de uso de VRAM durante o treino: {mem_metrics['peak_vram_mb']:.2f} MB")
 
     # --- 5. Extração e Salvamento dos Resultados ---
     print("\n[FASE FINAL] Gerando e salvando resultados...")
@@ -76,15 +84,20 @@ def main():
     final_embeddings = trained_model.get_embeddings(pyg_data)
     inference_end_time = time.time()
     inference_duration = inference_end_time - inference_start_time
-    print(f"Geração de embeddings (inferência) concluída em {inference_duration:.4f} segundos.")
+    print(
+        f"Geração de embeddings (inferência) concluída em {inference_duration:.4f} segundos."
+    )
 
     # Salvar os artefatos da execução
     save_results(trained_model, final_embeddings, wsg_obj, config, save_path=run_path)
+
+    # ATUALIZA A CHAMADA PARA INCLUIR AS MÉTRICAS DE MEMÓRIA
     save_report(
         config,
         training_history,
         training_duration,
         inference_duration,
+        mem_metrics,  # <-- Passa as métricas de memória
         save_path=run_path,
     )
 

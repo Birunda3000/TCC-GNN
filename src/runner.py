@@ -5,6 +5,7 @@ from src.config import Config
 from src.directory_manager import DirectoryManager
 from src.data_format_definition import WSG
 from src.classifiers import BaseClassifier
+from src.memory_utils import MemoryTracker  # <-- Importa o novo rastreador
 
 
 class ExperimentRunner:
@@ -22,19 +23,23 @@ class ExperimentRunner:
 
     def run(self, models_to_run: List[BaseClassifier]):
         """Executa o pipeline de treinamento e avaliação para uma lista de modelos."""
-        # Obter o caminho do diretório da execução atual
         run_path = self.directory_manager.get_run_path()
 
         for model in models_to_run:
-            # Passar o caminho para o método de treino e avaliação
-            acc, f1, train_time, report = model.train_and_evaluate(
-                self.wsg_obj, save_path=run_path
+            tracker = MemoryTracker()
+
+            # Usa o tracker para executar a função e coletar métricas de memória
+            (acc, f1, train_time, report), mem_metrics = tracker.track(
+                model.train_and_evaluate, self.wsg_obj, save_path=run_path
             )
 
+            # Adiciona as métricas de memória aos resultados
             self.results[model.model_name] = {
                 "accuracy": acc,
                 "f1_score_weighted": f1,
                 "training_time_seconds": train_time,
+                "peak_ram_mb": mem_metrics["peak_ram_mb"],
+                "peak_vram_mb": mem_metrics["peak_vram_mb"],
             }
             if report:
                 self.reports[f"{model.model_name}_classification_report"] = report
@@ -43,6 +48,7 @@ class ExperimentRunner:
         self.directory_manager.save_classification_report(
             input_file=self.data_source_name, results=self.results, reports=self.reports
         )
+        # ATUALIZA A FUNÇÃO DE IMPRESSÃO PARA MOSTRAR A MEMÓRIA
         self.directory_manager.print_summary_table(
             results=self.results,
             input_file_path=self.data_source_name,
