@@ -1,11 +1,3 @@
-Com certeza\! Analisei o `README.md` e, embora o conteúdo seja excelente e detalhado, a ordem pode ser otimizada para guiar um novo usuário de forma mais intuitiva, do conceito geral ao uso prático e, por fim, à personalização.
-
-Corrigi a estrutura, aprimorei a formatação e adicionei uma tabela de conteúdos para facilitar a navegação, mantendo todas as informações e atualizações que o bot adicionou.
-
-Aqui está a versão revisada e reorganizada:
-
------
-
 # TCC-GNN: Framework para Geração e Análise de Embeddings de Grafos
 
 Este repositório contém o código-fonte de um framework desenvolvido para experimentação com Redes Neurais de Grafos (GNNs). O foco principal é a geração de *node embeddings* (representações vetoriais de nós) de forma auto-supervisionada usando um *Variational Graph Autoencoder* (VGAE) e a subsequente avaliação da qualidade desses embeddings em tarefas de classificação de nós.
