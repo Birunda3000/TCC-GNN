@@ -4,6 +4,7 @@ import os
 import time
 import random
 import numpy as np
+import psutil  # <--- 1. IMPORTADO
 
 from src.config import Config
 from src.data_loader import get_loader
@@ -11,6 +12,13 @@ from src.data_converter import DataConverter
 from src.model import VGAE
 from src.train import train_model, save_results, save_report
 from src.directory_manager import DirectoryManager
+
+
+def format_bytes(b):
+    """Converte bytes para um formato legível (MB ou GB)."""
+    if b < 1024**3:
+        return f"{b / 1024**2:.2f} MB"
+    return f"{b / 1024**3:.2f} GB"
 
 
 def main():
@@ -21,6 +29,16 @@ def main():
     # --- 1. Configuração Inicial ---
     config = Config()
     device = torch.device(config.DEVICE)
+
+    # --- 2. INICIAR MONITORAMENTO DE MEMÓRIA ---
+    process = psutil.Process(os.getpid())
+    mem_start = process.memory_info().rss  # RAM atual em bytes
+    print(f"RAM inicial do processo: {format_bytes(mem_start)}")
+    
+    if "cuda" in device.type and torch.cuda.is_available():
+        torch.cuda.reset_peak_memory_stats(device)
+        print("VRAM (GPU) Peak Stats zeradas.")
+    # --- FIM DO SETUP DE MONITORAMENTO ---
 
     # Aplica a semente de aleatoriedade para reprodutibilidade
     torch.manual_seed(config.RANDOM_SEED)
@@ -33,11 +51,17 @@ def main():
     print(f"Dispositivo de treinamento: {device}")
     print(f"Dataset selecionado: {config.DATASET_NAME}")
 
-    # --- 2. Pipeline de Dados (Loader -> WSG -> Converter -> PyG) e salvamento ---
+    # --- 3. Pipeline de Dados (Loader -> WSG -> Converter -> PyG) ---
     print("\n[FASE 1/2] Executando pipeline de dados...")
     loader = get_loader(config.DATASET_NAME)
     wsg_obj = loader.load()
-    pyg_data = DataConverter.to_pyg_data(wsg_obj).to(device)
+    mem_after_load = process.memory_info().rss
+    print(f"RAM após carregar wsg_obj: {format_bytes(mem_after_load)}")
+
+    # (Correção aplicada: for_embedding_bag=True)
+    pyg_data = DataConverter.to_pyg_data(wsg_obj, for_embedding_bag=True).to(device)
+    mem_after_convert = process.memory_info().rss
+    print(f"RAM após converter para pyg_data (EmbeddingBag): {format_bytes(mem_after_convert)}")
     print("Pipeline de dados concluído. Dados prontos para o modelo.")
 
 
@@ -47,27 +71,46 @@ def main():
     )
 
 
-    # --- 3. Instanciação do Modelo e Otimizador ---
+    # --- 4. Instanciação do Modelo e Otimizador ---
     print("\n[FASE 3] Construindo o modelo VGAE...")
+    # (Correção aplicada: lendo de pyg_data, pois o DataConverter agora insere)
     model = VGAE(
         num_total_features=pyg_data.num_total_features,
         embedding_dim=config.EMBEDDING_DIM,
         hidden_dim=config.HIDDEN_DIM,
         out_embedding_dim=config.OUT_EMBEDDING_DIM,
     ).to(device)
+    mem_after_model = process.memory_info().rss
+    print(f"RAM após instanciar modelo: {format_bytes(mem_after_model)}")
+    
     optimizer = optim.Adam(model.parameters(), lr=config.LEARNING_RATE)
     print("Modelo construído com sucesso.")
     print(model)
 
-    # --- 4. Loop de Treinamento ---
+    # --- 5. Loop de Treinamento ---
     print("\n[FASE 4] Iniciando treinamento do modelo...")
     start_time = time.time()
     trained_model, training_history = train_model(model, pyg_data, optimizer, config.EPOCHS)
     end_time = time.time()
     training_duration = end_time - start_time
+
+    # --- 6. COLETAR MÉTRICAS DE PICO ---
+    mem_after_train = process.memory_info().rss
+    print(f"RAM após treinamento: {format_bytes(mem_after_train)}")
+    
+    peak_vram_bytes = 0
+    if "cuda" in device.type and torch.cuda.is_available():
+        peak_vram_bytes = torch.cuda.max_memory_allocated(device)
+        print(f"PICO VRAM (GPU) durante treino: {format_bytes(peak_vram_bytes)}")
+    
+    # Calculamos o *uso líquido* aproximado do processo
+    ram_usage_bytes = mem_after_train - mem_start
+    print(f"RAM líquida (Aprox.) usada pelo processo: {format_bytes(ram_usage_bytes)}")
+    # --- FIM DA COLETA DE MÉTRICAS ---
+
     print(f"Treinamento finalizado em {training_duration:.2f} segundos.")
 
-    # --- 5. Extração e Salvamento dos Resultados ---
+    # --- 7. Extração e Salvamento dos Resultados ---
     print("\n[FASE FINAL] Gerando e salvando resultados...")
     run_path = directory_manager.get_run_path()
 
@@ -78,6 +121,21 @@ def main():
     inference_duration = inference_end_time - inference_start_time
     print(f"Geração de embeddings (inferência) concluída em {inference_duration:.4f} segundos.")
 
+    # Criar um dict de métricas de memória
+    memory_metrics = {
+        "ram_start_bytes": mem_start,
+        "ram_after_load_bytes": mem_after_load,
+        "ram_after_convert_bytes": mem_after_convert,
+        "ram_after_model_bytes": mem_after_model,
+        "ram_after_train_bytes": mem_after_train,
+        "ram_peak_train_usage_bytes": ram_usage_bytes,
+        "vram_peak_bytes": peak_vram_bytes,
+        # Adiciona versões legíveis
+        "ram_peak_train_usage_readable": format_bytes(ram_usage_bytes),
+        "vram_peak_readable": format_bytes(peak_vram_bytes),
+        "ram_after_convert_readable": format_bytes(mem_after_convert - mem_start),
+    }
+
     # Salvar os artefatos da execução
     save_results(trained_model, final_embeddings, wsg_obj, config, save_path=run_path)
     save_report(
@@ -86,6 +144,7 @@ def main():
         training_duration,
         inference_duration,
         save_path=run_path,
+        memory_metrics=memory_metrics,  # <--- 8. PASSADO PARA O RELATÓRIO
     )
 
     # Prepara as métricas para o nome do diretório final

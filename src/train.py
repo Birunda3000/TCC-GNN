@@ -7,7 +7,7 @@ import json
 from datetime import datetime
 import pytz
 import time
-from typing import Tuple, Dict, List
+from typing import Tuple, Dict, List, Optional, Any  # <--- IMPORTAÇÕES ATUALIZADAS
 
 # --- Importa nossos módulos customizados ---
 from src.config import Config
@@ -23,16 +23,7 @@ def train_model(
 ) -> Tuple[VGAE, List[Dict[str, float]]]:
     """
     Executa o loop de treinamento para o modelo VGAE.
-
-    Args:
-        model (VGAE): A instância do modelo a ser treinado.
-        data (Data): Os dados do grafo no formato PyG.
-        optimizer (optim.Optimizer): O otimizador.
-        epochs (int): O número de épocas para treinar.
-
-    Returns:
-        Tuple[VGAE, List[Dict[str, float]]]: O modelo treinado e um histórico
-                                             das métricas de loss por época.
+    (Esta função está correta, sem alterações)
     """
     training_history = []
     for epoch in range(1, epochs + 1):
@@ -74,19 +65,27 @@ def save_report(
     training_duration: float,
     inference_duration: float,
     save_path: str,
+    memory_metrics: Optional[Dict[str, Any]] = None,  # <--- 1. ARGUMENTO ADICIONADO
 ):
     """
     Salva um relatório de texto com o resumo da execução.
-
-    Args:
-        config (Config): O objeto de configuração da execução.
-        training_history (List[Dict[str, float]]): O histórico de métricas do treinamento.
-        training_duration (float): O tempo total de treinamento em segundos.
-        inference_duration (float): O tempo total da inferência em segundos.
-        save_path (str): O caminho do diretório onde o relatório será salvo.
+    (Esta função foi ATUALIZADA para incluir métricas de memória)
     """
     final_metrics = training_history[-1]
     report_path = os.path.join(save_path, "run_summary.txt")
+
+    # --- 2. SEÇÃO DE MEMÓRIA ADICIONADA AO RELATÓRIO ---
+    memory_report = "MÉTRICAS DE MEMÓRIA\n-----------------\n"
+    if memory_metrics:
+        memory_report += f"- RAM Inicial: {memory_metrics.get('ram_start_bytes', 0) / 1024**2:.2f} MB\n"
+        memory_report += f"- RAM Após Carregar WSG: {memory_metrics.get('ram_after_load_bytes', 0) / 1024**2:.2f} MB\n"
+        memory_report += f"- RAM Após Converter (EmbBag): {memory_metrics.get('ram_after_convert_bytes', 0) / 1024**2:.2f} MB\n"
+        memory_report += f"- RAM Pós-Treino: {memory_metrics.get('ram_after_train_bytes', 0) / 1024**2:.2f} MB\n"
+        memory_report += f"- Uso Líquido de RAM (Pico Aprox.): {memory_metrics.get('ram_peak_train_usage_readable', 'N/A')}\n"
+        memory_report += f"- PICO de VRAM (GPU): {memory_metrics.get('vram_peak_readable', 'N/A')}\n"
+    else:
+        memory_report += "- Monitoramento de memória não foi fornecido.\n"
+    # --- FIM DA SEÇÃO DE MEMÓRIA ---
 
     content = f"""
 =================================================
@@ -119,6 +118,7 @@ RESULTADOS FINAIS
 - Loss de Reconstrução Final: {final_metrics['recon_loss']:.6f}
 - Loss KL Final: {final_metrics['kl_loss']:.6f}
 
+{memory_report} 
 =================================================
 """
     with open(report_path, "w") as f:
@@ -137,13 +137,7 @@ def save_results(
     """
     Gera os embeddings finais e os salva em um novo arquivo no formato WSG.
     Também salva o estado do modelo treinado.
-
-    Args:
-        model (VGAE): O modelo treinado.
-        final_embeddings (torch.Tensor): Os embeddings de nós já gerados.
-        wsg_obj (WSG): O objeto de dados original no formato WSG, usado como base.
-        config (Config): O objeto de configuração.
-        save_path (str): O caminho do diretório onde os resultados serão salvos.
+    (Esta função está correta, sem alterações)
     """
     model.eval()
     tz_info = pytz.timezone("America/Sao_Paulo")
@@ -201,6 +195,10 @@ def save_results(
     print(f"Arquivo de embeddings no formato WSG salvo em: '{output_path}'")
 
 
+# =========================================================================
+# A FUNÇÃO MAIN() ABAIXO ESTÁ OBSOLETA E NÃO É USADA.
+# O SCRIPT CORRETO PARA RODAR É O 'run_embedding_generation.py'.
+# =========================================================================
 def main():
     """
     Função principal que orquestra todo o processo de treinamento e
