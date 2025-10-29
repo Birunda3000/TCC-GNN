@@ -54,7 +54,7 @@ def main():
         wsg_obj=wsg_obj,
         data_source_name=os.path.basename(wsg_file_path),
     )
-    runner.run(models_to_run)
+    runner.run(models_to_run, for_embedding_bag=False)
 
 
 if __name__ == "__main__":

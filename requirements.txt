@@ -22,3 +22,6 @@ pydantic
 # Visualização
 pyvis
 beautifulsoup4
+
+# Telemetria e Monitoramento
+memory_profiler

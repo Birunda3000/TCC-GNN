@@ -10,8 +10,10 @@ import time
 from abc import ABC, abstractmethod
 from tqdm import tqdm
 import math
+from typing import Tuple, Dict, List # <--- IMPORTADO
 
 from torch_geometric.nn import GCNConv, GATConv
+from torch_geometric.data import Data # <--- IMPORTADO
 from sklearn.linear_model import LogisticRegression
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import train_test_split
@@ -46,9 +48,10 @@ class BaseClassifier(ABC):
         self.model_name = self.__class__.__name__
 
     @abstractmethod
-    def train_and_evaluate(self, wsg_obj: WSG):
+    def train_and_evaluate(self, data: Data) -> Tuple[float, float, float, Dict]: # <-- MUDANÇA 1: Assinatura
         """
         Orquestra o processo de treinamento e avaliação para o modelo.
+        Recebe dados já processados do PyTorch Geometric.
         Deve retornar: (acurácia, f1_score, tempo_de_treino, relatório_detalhado)
         """
         pass
@@ -65,10 +68,15 @@ class SklearnClassifier(BaseClassifier):
         except TypeError:
             self.model = model_class(**model_params)
 
-    def train_and_evaluate(self, wsg_obj: WSG):
+    def train_and_evaluate(self, data: Data) -> Tuple[float, float, float, Dict]: # <-- MUDANÇA 2: Assinatura
         print(f"\n--- Avaliando (Sklearn): {self.model_name} ---")
 
-        pyg_data = DataConverter.to_pyg_data(wsg_obj=wsg_obj, for_embedding_bag=False)
+        # --- REMOVIDO ---
+        # pyg_data = DataConverter.to_pyg_data(wsg_obj=wsg_obj, for_embedding_bag=False)
+        # ---
+        
+        # Usa 'data' que veio como argumento
+        pyg_data = data
         X = pyg_data.x.cpu().numpy()
         y = pyg_data.y.cpu().numpy()
 
@@ -139,12 +147,17 @@ class PyTorchClassifier(BaseClassifier, nn.Module):
 
         return acc, f1, report
 
-    def _train_and_evaluate_internal(self, wsg_obj: WSG, use_gnn: bool):
+    def _train_and_evaluate_internal(self, data: Data, use_gnn: bool): # <-- MUDANÇA 3: Assinatura
         print(f"\n--- Avaliando (PyTorch): {self.model_name} ---")
         device = torch.device(self.config.DEVICE)
         self.to(device)
 
-        data = DataConverter.to_pyg_data(wsg_obj=wsg_obj, for_embedding_bag=False).to(device)
+        # --- REMOVIDO ---
+        # data = DataConverter.to_pyg_data(wsg_obj=wsg_obj, for_embedding_bag=False).to(device)
+        # ---
+        
+        # 'data' agora é passado como argumento e já está no device
+        
         optimizer = optim.Adam(self.parameters(), lr=0.01, weight_decay=5e-4)
         criterion = nn.CrossEntropyLoss()
 
@@ -180,8 +193,8 @@ class MLPClassifier(PyTorchClassifier):
         x = F.relu(self.fc1(x))
         return self.fc2(x)
 
-    def train_and_evaluate(self, wsg_obj: WSG):
-        return self._train_and_evaluate_internal(wsg_obj, use_gnn=False)
+    def train_and_evaluate(self, data: Data): # <-- MUDANÇA 4: Assinatura
+        return self._train_and_evaluate_internal(data, use_gnn=False)
 
 
 class GCNClassifier(PyTorchClassifier):
@@ -197,8 +210,8 @@ class GCNClassifier(PyTorchClassifier):
         x = F.dropout(x, p=0.5, training=self.training)
         return self.conv2(x, edge_index)
 
-    def train_and_evaluate(self, wsg_obj: WSG):
-        return self._train_and_evaluate_internal(wsg_obj, use_gnn=True)
+    def train_and_evaluate(self, data: Data): # <-- MUDANÇA 5: Assinatura
+        return self._train_and_evaluate_internal(data, use_gnn=True)
 
 
 class GATClassifier(PyTorchClassifier):
@@ -217,8 +230,8 @@ class GATClassifier(PyTorchClassifier):
         x = F.dropout(x, p=0.6, training=self.training)
         return self.conv2(x, edge_index)
 
-    def train_and_evaluate(self, wsg_obj: WSG):
-        return self._train_and_evaluate_internal(wsg_obj, use_gnn=True)
+    def train_and_evaluate(self, data: Data): # <-- MUDANÇA 6: Assinatura
+        return self._train_and_evaluate_internal(data, use_gnn=True)
 
 
 class XGBoostClassifier(BaseClassifier):
@@ -253,13 +266,18 @@ class XGBoostClassifier(BaseClassifier):
         self.num_boost_round = num_boost_round
         self.model = None
 
-    def train_and_evaluate(self, wsg_obj: WSG):
+    def train_and_evaluate(self, data: Data): # <-- MUDANÇA 7: Assinatura
         print(f"\n--- Avaliando (XGBoost): {self.model_name} ---")
         print(
             "Este modelo pode levar mais tempo para treinar, mas geralmente oferece excelente desempenho."
         )
 
-        pyg_data = DataConverter.to_pyg_data(wsg_obj=wsg_obj, for_embedding_bag=False)
+        # --- REMOVIDO ---
+        # pyg_data = DataConverter.to_pyg_data(wsg_obj=wsg_obj, for_embedding_bag=False)
+        # ---
+        
+        # Usa 'data' que veio como argumento
+        pyg_data = data
         X = pyg_data.x.cpu().numpy()
         y = pyg_data.y.cpu().numpy()
 
