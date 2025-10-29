@@ -27,7 +27,7 @@ class Config:
 
     # --- Configurações do Dataset ---
     # Opções: "cora", "musae-github", "musae-facebook"
-    DATASET_NAME = "musae-facebook"
+    DATASET_NAME = "musae-github"
 
     # --- Caminhos para os arquivos do Musae-Github ---
     GITHUB_MUSAE_EDGES_PATH = os.path.join(

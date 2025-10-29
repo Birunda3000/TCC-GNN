@@ -27,7 +27,7 @@ def main():
     random.seed(config.RANDOM_SEED)
 
     # --- 2. Carregar Dados ---
-    wsg_file_path = "data/output/EMBEDDING_RUNS/musae-facebook__loss_6_4786__emb_dim_64__29-10-2025_09-48-11/musae-facebook_embeddings.wsg.json"
+    wsg_file_path = "data/output/EMBEDDING_RUNS/musae-github__loss_6_5473__emb_dim_64__29-10-2025_13-35-40/musae-github_embeddings.wsg.json"
     print("=" * 65, "\nINICIANDO TAREFA DE CLASSIFICAÇÃO DE EMBEDDINGS")
     print(f"Arquivo de entrada: {wsg_file_path}\n", "=" * 65)
     loader = DirectWSGLoader(file_path=wsg_file_path)
