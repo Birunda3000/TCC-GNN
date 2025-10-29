@@ -27,7 +27,7 @@ class Config:
 
     # --- Configurações do Dataset ---
     # Opções: "cora", "musae-github", "musae-facebook"
-    DATASET_NAME = "musae-github"
+    DATASET_NAME = "musae-facebook"
 
     # --- Caminhos para os arquivos do Musae-Github ---
     GITHUB_MUSAE_EDGES_PATH = os.path.join(
@@ -39,6 +39,19 @@ class Config:
     GITHUB_MUSAE_FEATURES_PATH = os.path.join(
         DATA_DIR, "datasets", "musae-github", "musae_git_features.json"
     )
+
+    # --- (NOVA SEÇÃO ADICIONADA) ---
+    # --- Caminhos para os arquivos do Musae-Facebook ---
+    FACEBOOK_MUSAE_EDGES_PATH = os.path.join(
+        DATA_DIR, "datasets", "musae-facebook", "musae_facebook_edges.csv"
+    )
+    FACEBOOK_MUSAE_TARGET_PATH = os.path.join(
+        DATA_DIR, "datasets", "musae-facebook", "musae_facebook_target.csv"
+    )
+    FACEBOOK_MUSAE_FEATURES_PATH = os.path.join(
+        DATA_DIR, "datasets", "musae-facebook", "musae_facebook_features.json"
+    )
+    # --- FIM DA NOVA SEÇÃO ---
 
     # --- Hiperparâmetros do Modelo VGAE ---
     EMBEDDING_DIM = 128  # Dimensão do embedding das features de entrada
