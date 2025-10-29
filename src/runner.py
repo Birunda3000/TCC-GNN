@@ -1,7 +1,7 @@
 import os
 from typing import List, Dict
-import psutil  # Importado
-import torch   # Importado
+import psutil
+import torch
 
 from src.config import Config
 from src.directory_manager import DirectoryManager

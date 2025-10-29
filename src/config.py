@@ -59,7 +59,7 @@ class Config:
     OUT_EMBEDDING_DIM = 64  # Dimensão do embedding final do nó variar [32,64,128]
 
     # --- Configurações de Treinamento ---
-    EPOCHS = 30
+    EPOCHS = 100
     LEARNING_RATE = 0.0001
     # Gera uma semente aleatória baseada no tempo atual para garantir execuções
     # diferentes, mas a registra para permitir reprodutibilidade.

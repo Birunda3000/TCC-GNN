@@ -63,7 +63,7 @@ class DataConverter:
         # --- 4. Processar Features (Lógica Condicional) ---
         
         if for_embedding_bag:
-            # --- LÓGICA PARA VGAE (Do seu converter antigo) ---
+            # --- LÓGICA PARA VGAE ---
             # Gera os tensores esparsos para nn.EmbeddingBag
             all_indices = []
             all_weights = []
@@ -87,7 +87,7 @@ class DataConverter:
             pyg_data.num_total_features = wsg_obj.metadata.num_total_features
 
         else:
-            # --- LÓGICA PARA GCN/MLP (Do seu converter novo) ---
+            # --- LÓGICA PARA GCN/MLP ---
             # Gera a matriz 'x' densa e as máscaras
             feature_type = wsg_obj.metadata.feature_type
 

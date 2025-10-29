@@ -27,7 +27,7 @@ def main():
     random.seed(config.RANDOM_SEED)
 
     # --- 2. Carregar Dados ---
-    wsg_file_path = "/app/gnn_tcc/data/output/EMBEDDING_RUNS/musae-facebook__loss_6_2770__emb_dim_64__28-10-2025_20-57-22/musae-facebook_embeddings.wsg.json"
+    wsg_file_path = "data/output/EMBEDDING_RUNS/musae-facebook__loss_6_4786__emb_dim_64__29-10-2025_09-48-11/musae-facebook_embeddings.wsg.json"
     print("=" * 65, "\nINICIANDO TAREFA DE CLASSIFICAÇÃO DE EMBEDDINGS")
     print(f"Arquivo de entrada: {wsg_file_path}\n", "=" * 65)
     loader = DirectWSGLoader(file_path=wsg_file_path)
@@ -37,9 +37,9 @@ def main():
     input_dim = len(wsg_obj.node_features["0"].weights)
     output_dim = len(set(y for y in wsg_obj.graph_structure.y if y is not None))
     models_to_run = [
-        SklearnClassifier(config, model_class=LogisticRegression, max_iter=1000),
+        SklearnClassifier(config, model_class=LogisticRegression, max_iter=1000, class_weight='balanced'),
         SklearnClassifier(config, model_class=KNeighborsClassifier, n_neighbors=5),
-        SklearnClassifier(config, model_class=RandomForestClassifier),
+        SklearnClassifier(config, model_class=RandomForestClassifier, class_weight='balanced'),
         MLPClassifier(
             config, input_dim=input_dim, hidden_dim=128, output_dim=output_dim
         ),
@@ -50,7 +50,7 @@ def main():
     # --- 4. Executar o Experimento ---
     runner = ExperimentRunner(
         config=config,
-        run_folder_name="FEATURE_CLASSIFICATION_RUNS",
+        run_folder_name="CLASSIFICATION_RUNS",
         wsg_obj=wsg_obj,
         data_source_name=os.path.basename(wsg_file_path),
     )

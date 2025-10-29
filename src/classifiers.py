@@ -70,7 +70,7 @@ class SklearnClassifier(BaseClassifier):
     def train_and_evaluate(self, wsg_obj: WSG):
         print(f"\n--- Avaliando (Sklearn): {self.model_name} ---")
 
-        pyg_data = DataConverter.to_pyg_data(wsg_obj)
+        pyg_data = DataConverter.to_pyg_data(wsg_obj=wsg_obj, for_embedding_bag=False)
         X = pyg_data.x.cpu().numpy()
         y = pyg_data.y.cpu().numpy()
 
@@ -146,7 +146,7 @@ class PyTorchClassifier(BaseClassifier, nn.Module):
         device = torch.device(self.config.DEVICE)
         self.to(device)
 
-        data = DataConverter.to_pyg_data(wsg_obj).to(device)
+        data = DataConverter.to_pyg_data(wsg_obj=wsg_obj, for_embedding_bag=False).to(device)
         optimizer = optim.Adam(self.parameters(), lr=0.01, weight_decay=5e-4)
         criterion = nn.CrossEntropyLoss()
 
@@ -261,7 +261,7 @@ class XGBoostClassifier(BaseClassifier):
             "Este modelo pode levar mais tempo para treinar, mas geralmente oferece excelente desempenho."
         )
 
-        pyg_data = DataConverter.to_pyg_data(wsg_obj)
+        pyg_data = DataConverter.to_pyg_data(wsg_obj=wsg_obj, for_embedding_bag=False)
         X = pyg_data.x.cpu().numpy()
         y = pyg_data.y.cpu().numpy()
 
@@ -446,7 +446,7 @@ class DeepEnsembleClassifier(BaseClassifier):
         )
 
         # Converte os dados para o formato NumPy
-        pyg_data = DataConverter.to_pyg_data(wsg_obj)
+        pyg_data = DataConverter.to_pyg_data(wsg_obj=wsg_obj, for_embedding_bag=False)
         X = pyg_data.x.cpu().numpy()
         y = pyg_data.y.cpu().numpy()
 
@@ -520,237 +520,3 @@ class DeepEnsembleClassifier(BaseClassifier):
 
         # Retorna a classe mais provável
         return np.argmax(proba_sum, axis=1)
-
-
-class TransformerNetworkClassifier(BaseClassifier, nn.Module):
-    """
-    Implementa um classificador baseado na arquitetura Transformer para processamento de embeddings.
-
-    Esta é uma implementação pesada que serve como baseline forte, combinando:
-    1. Várias camadas de Transformer com mecanismo de self-attention
-    2. Camadas de normalização e dropout
-    3. Processamento posicional
-    4. Otimização pesada com warmup
-
-    A arquitetura é baseada no paper "Attention Is All You Need" e adaptada para
-    a tarefa de classificação de nós em grafos.
-    """
-
-    def __init__(
-        self,
-        config: Config,
-        input_dim: int,
-        output_dim: int,
-        hidden_dim: int = 512,
-        nhead: int = 8,
-        num_layers: int = 6,
-        dim_feedforward: int = 2048,
-        dropout: float = 0.1,
-        activation: str = "gelu",
-        **kwargs,
-    ):
-        BaseClassifier.__init__(self, config)
-        nn.Module.__init__(self)
-
-        self.model_name = "TransformerNetworkClassifier"
-        self.input_dim = input_dim
-        self.hidden_dim = hidden_dim
-        self.output_dim = output_dim
-        self.nhead = nhead
-        self.num_layers = num_layers
-        self.max_epochs = kwargs.get("max_epochs", 100)
-
-        # Embedding inicial (converte dimensão de entrada para dimensão do modelo)
-        self.input_projection = nn.Linear(input_dim, hidden_dim)
-
-        # Codificação posicional (ajuda o Transformer a entender a "ordem" das features)
-        self.pos_encoder = PositionalEncoding(hidden_dim, dropout)
-
-        # Camadas de Transformer
-        encoder_layers = TransformerEncoderLayer(
-            d_model=hidden_dim,
-            nhead=nhead,
-            dim_feedforward=dim_feedforward,
-            dropout=dropout,
-            activation=activation,
-            batch_first=True,
-        )
-
-        self.transformer_encoder = TransformerEncoder(
-            encoder_layers, num_layers=num_layers
-        )
-
-        # Projeção final para as classes de saída
-        self.output_projection = nn.Sequential(
-            nn.Linear(hidden_dim, hidden_dim // 2),
-            nn.Dropout(dropout),
-            nn.GELU(),
-            nn.Linear(hidden_dim // 2, output_dim),
-        )
-
-    def forward(self, x: torch.Tensor):
-        """
-        Args:
-            x: Tensor de entrada [batch_size, feature_dim]
-
-        Returns:
-            Tensor de saída [batch_size, output_dim]
-        """
-        # Projeção de entrada
-        x = self.input_projection(x)
-
-        # Adiciona dimensão de sequência para o Transformer
-        x = x.unsqueeze(1)
-
-        # Adiciona codificação posicional
-        x = self.pos_encoder(x)
-
-        # Passa pela pilha de Transformer
-        x = self.transformer_encoder(x)
-
-        # Remove a dimensão de sequência
-        x = x.squeeze(1)
-
-        # Projeção de saída
-        return self.output_projection(x)
-
-    def train_and_evaluate(self, wsg_obj: WSG):
-        print(f"\n--- Avaliando (Deep Learning): {self.model_name} ---")
-        print(
-            "AVISO: Este é um modelo de Transformer muito pesado que pode demorar 30+ minutos."
-        )
-        print(
-            "       O modelo utiliza técnicas avançadas de atenção e processamento profundo."
-        )
-
-        device = torch.device(self.config.DEVICE)
-        self.to(device)
-
-        # Converte os dados
-        data = DataConverter.to_pyg_data(wsg_obj).to(device)
-
-        # Configuração do otimizador com learning rate schedule
-        optimizer = torch.optim.AdamW(self.parameters(), lr=2e-4, weight_decay=0.01)
-
-        # Learning rate scheduler com warmup
-        scheduler = get_cosine_schedule_with_warmup(
-            optimizer=optimizer,
-            num_warmup_steps=int(self.max_epochs * 0.1),
-            num_training_steps=self.max_epochs,
-        )
-
-        criterion = nn.CrossEntropyLoss()
-
-        # Medição do tempo de treinamento
-        start_time = time.time()
-
-        # Loop de treinamento
-        print(f"\nTreinando por {self.max_epochs} épocas com LR scheduler e warmup...")
-
-        pbar = tqdm(
-            range(self.max_epochs), desc=f"Treinando {self.model_name}", leave=True
-        )
-
-        for epoch in pbar:
-            # Treino
-            self.train()
-            optimizer.zero_grad()
-
-            out = self(data.x)
-            loss = criterion(out[data.train_mask], data.y[data.train_mask])
-
-            loss.backward()
-            torch.nn.utils.clip_grad_norm_(self.parameters(), max_norm=1.0)
-            optimizer.step()
-            scheduler.step()
-
-            # Feedback
-            if (epoch + 1) % 10 == 0 or epoch == 0:
-                with torch.no_grad():
-                    self.eval()
-                    out = self(data.x)
-                    pred = out.argmax(dim=1)
-                    train_acc = accuracy_score(
-                        data.y[data.train_mask].cpu(), pred[data.train_mask].cpu()
-                    )
-
-                pbar.set_postfix(
-                    {
-                        "loss": f"{loss.item():.4f}",
-                        "lr": f"{scheduler.get_last_lr()[0]:.6f}",
-                        "train_acc": f"{train_acc:.4f}",
-                    }
-                )
-
-        train_time = time.time() - start_time
-
-        # Avaliação final
-        self.eval()
-        with torch.no_grad():
-            out = self(data.x)
-            pred = out.argmax(dim=1)
-
-            y_true = data.y[data.test_mask].cpu()
-            y_pred = pred[data.test_mask].cpu()
-
-            acc = accuracy_score(y_true, y_pred)
-            f1 = f1_score(y_true, y_pred, average="weighted")
-            report = classification_report(
-                y_true, y_pred, output_dict=True, zero_division=0
-            )
-
-        print(f"\nTreinamento completo em {train_time:.2f} segundos")
-        print(f"Acurácia final: {acc:.4f}, F1-score: {f1:.4f}")
-
-        return acc, f1, train_time, report
-
-
-class PositionalEncoding(nn.Module):
-    """
-    Implementação da codificação posicional para o Transformer.
-    Baseada na implementação do PyTorch para o Transformer.
-    """
-
-    def __init__(self, d_model: int, dropout: float = 0.1, max_len: int = 5000):
-        super().__init__()
-        self.dropout = nn.Dropout(p=dropout)
-
-        position = torch.arange(max_len).unsqueeze(1)
-        div_term = torch.exp(
-            torch.arange(0, d_model, 2) * (-math.log(10000.0) / d_model)
-        )
-        pe = torch.zeros(max_len, d_model)
-        pe[:, 0::2] = torch.sin(position * div_term)
-        pe[:, 1::2] = torch.cos(position * div_term)
-        self.register_buffer("pe", pe)
-
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        """
-        Args:
-            x: Tensor, shape [batch_size, seq_len, embedding_dim]
-        """
-        # Adiciona codificação posicional apenas na dimensão da sequência
-        pe = self.pe[: x.size(1)].unsqueeze(0)  # [1, seq_len, d_model]
-        x = x + pe
-        return self.dropout(x)
-
-
-def get_cosine_schedule_with_warmup(
-    optimizer, num_warmup_steps: int, num_training_steps: int, num_cycles: float = 0.5
-):
-    """
-    Cria um scheduler de learning rate que realiza warmup seguido de decay coseno.
-    """
-
-    def lr_lambda(current_step):
-        # Warmup
-        if current_step < num_warmup_steps:
-            return float(current_step) / float(max(1, num_warmup_steps))
-
-        # Decay coseno
-        progress = float(current_step - num_warmup_steps) / float(
-            max(1, num_training_steps - num_warmup_steps)
-        )
-        return max(0.0, 0.5 * (1.0 + math.cos(math.pi * num_cycles * 2.0 * progress)))
-
-    return torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda)
