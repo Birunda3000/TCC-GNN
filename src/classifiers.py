@@ -89,9 +89,9 @@ class SklearnClassifier(BaseClassifier):
         X_train, y_train = X[pyg_data.train_mask], y[pyg_data.train_mask]
         X_test, y_test = X[pyg_data.test_mask], y[pyg_data.test_mask]
 
-        start_time = time.perf_counter()
+        start_time = time.process_time()
         self.model.fit(X_train, y_train)
-        train_time = time.perf_counter() - start_time
+        train_time = time.process_time() - start_time
 
         y_pred = self.model.predict(X_test)
 
@@ -168,7 +168,7 @@ class PyTorchClassifier(BaseClassifier, nn.Module):
         optimizer = optim.Adam(self.parameters(), lr=0.01, weight_decay=5e-4)
         criterion = nn.CrossEntropyLoss()
 
-        start_time = time.perf_counter()
+        start_time = time.process_time()
 
         pbar = tqdm(
             range(self.config.EPOCHS),
@@ -179,7 +179,7 @@ class PyTorchClassifier(BaseClassifier, nn.Module):
             loss = self._train_step(optimizer, criterion, data, use_gnn)
             pbar.set_postfix({"loss": f"{loss:.4f}"})
 
-        train_time = time.perf_counter() - start_time
+        train_time = time.process_time() - start_time
 
         acc, f1, report = self._test_step(data, use_gnn)
         return acc, f1, train_time, report
@@ -301,7 +301,7 @@ class XGBoostClassifier(BaseClassifier):
         dtest = xgb.DMatrix(X_test, label=y_test)
 
         # Medir o tempo de treinamento
-        start_time = time.perf_counter()
+        start_time = time.process_time()
 
         print(f"Treinando XGBoost por {self.num_boost_round} rounds...")
         # Treinar com feedback de progresso
@@ -315,7 +315,7 @@ class XGBoostClassifier(BaseClassifier):
             verbose_eval=10,  # Mostrar progresso a cada 10 rounds
         )
 
-        train_time = time.perf_counter() - start_time
+        train_time = time.process_time() - start_time
 
         # Fazer predições
         y_pred_probs = self.model.predict(dtest)

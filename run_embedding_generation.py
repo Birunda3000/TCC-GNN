@@ -107,7 +107,7 @@ def main():
 
     # --- Loop de Treinamento ---
     print("\n[FASE 4] Iniciando treinamento do modelo...")
-    start_time = time.perf_counter()
+    start_time = time.process_time()
 
     peak_ram_train_func_mib = 0.0  # Pico durante a função train_model (MiB)
 
@@ -137,7 +137,7 @@ def main():
         # Usa memória PÓS treino como estimativa do pico geral
         peak_ram_overall_bytes = max(peak_ram_overall_bytes, process.memory_info().rss)
 
-    end_time = time.perf_counter()
+    end_time = time.process_time()
     training_duration = end_time - start_time
     # --- FIM TREINO ---
 
@@ -160,9 +160,9 @@ def main():
     print("\n[FASE FINAL] Gerando e salvando resultados...")
     run_path = directory_manager.get_run_path()
 
-    inference_start_time = time.perf_counter()
+    inference_start_time = time.process_time()
     final_embeddings = trained_model.get_embeddings(pyg_data)
-    inference_end_time = time.perf_counter()
+    inference_end_time = time.process_time()
     inference_duration = inference_end_time - inference_start_time
     print(
         f"Geração de embeddings (inferência) concluída em {inference_duration:.4f} segundos."
