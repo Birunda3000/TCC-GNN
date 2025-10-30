@@ -1,6 +1,7 @@
-'''
+"""
 Importa as bibliotecas necessárias para a construção de modelos de classificação. Para os embeddings.
-'''
+"""
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -10,10 +11,10 @@ import time
 from abc import ABC, abstractmethod
 from tqdm import tqdm
 import math
-from typing import Tuple, Dict, List # <--- IMPORTADO
+from typing import Tuple, Dict, List  # <--- IMPORTADO
 
 from torch_geometric.nn import GCNConv, GATConv
-from torch_geometric.data import Data # <--- IMPORTADO
+from torch_geometric.data import Data  # <--- IMPORTADO
 from sklearn.linear_model import LogisticRegression
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import train_test_split
@@ -48,7 +49,9 @@ class BaseClassifier(ABC):
         self.model_name = self.__class__.__name__
 
     @abstractmethod
-    def train_and_evaluate(self, data: Data) -> Tuple[float, float, float, Dict]: # <-- MUDANÇA 1: Assinatura
+    def train_and_evaluate(
+        self, data: Data
+    ) -> Tuple[float, float, float, Dict]:  # <-- MUDANÇA 1: Assinatura
         """
         Orquestra o processo de treinamento e avaliação para o modelo.
         Recebe dados já processados do PyTorch Geometric.
@@ -68,13 +71,15 @@ class SklearnClassifier(BaseClassifier):
         except TypeError:
             self.model = model_class(**model_params)
 
-    def train_and_evaluate(self, data: Data) -> Tuple[float, float, float, Dict]: # <-- MUDANÇA 2: Assinatura
+    def train_and_evaluate(
+        self, data: Data
+    ) -> Tuple[float, float, float, Dict]:  # <-- MUDANÇA 2: Assinatura
         print(f"\n--- Avaliando (Sklearn): {self.model_name} ---")
 
         # --- REMOVIDO ---
         # pyg_data = DataConverter.to_pyg_data(wsg_obj=wsg_obj, for_embedding_bag=False)
         # ---
-        
+
         # Usa 'data' que veio como argumento
         pyg_data = data
         X = pyg_data.x.cpu().numpy()
@@ -84,9 +89,9 @@ class SklearnClassifier(BaseClassifier):
         X_train, y_train = X[pyg_data.train_mask], y[pyg_data.train_mask]
         X_test, y_test = X[pyg_data.test_mask], y[pyg_data.test_mask]
 
-        start_time = time.time()
+        start_time = time.perf_counter()
         self.model.fit(X_train, y_train)
-        train_time = time.time() - start_time
+        train_time = time.perf_counter() - start_time
 
         y_pred = self.model.predict(X_test)
 
@@ -147,7 +152,9 @@ class PyTorchClassifier(BaseClassifier, nn.Module):
 
         return acc, f1, report
 
-    def _train_and_evaluate_internal(self, data: Data, use_gnn: bool): # <-- MUDANÇA 3: Assinatura
+    def _train_and_evaluate_internal(
+        self, data: Data, use_gnn: bool
+    ):  # <-- MUDANÇA 3: Assinatura
         print(f"\n--- Avaliando (PyTorch): {self.model_name} ---")
         device = torch.device(self.config.DEVICE)
         self.to(device)
@@ -155,13 +162,13 @@ class PyTorchClassifier(BaseClassifier, nn.Module):
         # --- REMOVIDO ---
         # data = DataConverter.to_pyg_data(wsg_obj=wsg_obj, for_embedding_bag=False).to(device)
         # ---
-        
+
         # 'data' agora é passado como argumento e já está no device
-        
+
         optimizer = optim.Adam(self.parameters(), lr=0.01, weight_decay=5e-4)
         criterion = nn.CrossEntropyLoss()
 
-        start_time = time.time()
+        start_time = time.perf_counter()
 
         pbar = tqdm(
             range(self.config.EPOCHS),
@@ -172,7 +179,7 @@ class PyTorchClassifier(BaseClassifier, nn.Module):
             loss = self._train_step(optimizer, criterion, data, use_gnn)
             pbar.set_postfix({"loss": f"{loss:.4f}"})
 
-        train_time = time.time() - start_time
+        train_time = time.perf_counter() - start_time
 
         acc, f1, report = self._test_step(data, use_gnn)
         return acc, f1, train_time, report
@@ -193,7 +200,7 @@ class MLPClassifier(PyTorchClassifier):
         x = F.relu(self.fc1(x))
         return self.fc2(x)
 
-    def train_and_evaluate(self, data: Data): # <-- MUDANÇA 4: Assinatura
+    def train_and_evaluate(self, data: Data):  # <-- MUDANÇA 4: Assinatura
         return self._train_and_evaluate_internal(data, use_gnn=False)
 
 
@@ -210,7 +217,7 @@ class GCNClassifier(PyTorchClassifier):
         x = F.dropout(x, p=0.5, training=self.training)
         return self.conv2(x, edge_index)
 
-    def train_and_evaluate(self, data: Data): # <-- MUDANÇA 5: Assinatura
+    def train_and_evaluate(self, data: Data):  # <-- MUDANÇA 5: Assinatura
         return self._train_and_evaluate_internal(data, use_gnn=True)
 
 
@@ -230,7 +237,7 @@ class GATClassifier(PyTorchClassifier):
         x = F.dropout(x, p=0.6, training=self.training)
         return self.conv2(x, edge_index)
 
-    def train_and_evaluate(self, data: Data): # <-- MUDANÇA 6: Assinatura
+    def train_and_evaluate(self, data: Data):  # <-- MUDANÇA 6: Assinatura
         return self._train_and_evaluate_internal(data, use_gnn=True)
 
 
@@ -266,7 +273,7 @@ class XGBoostClassifier(BaseClassifier):
         self.num_boost_round = num_boost_round
         self.model = None
 
-    def train_and_evaluate(self, data: Data): # <-- MUDANÇA 7: Assinatura
+    def train_and_evaluate(self, data: Data):  # <-- MUDANÇA 7: Assinatura
         print(f"\n--- Avaliando (XGBoost): {self.model_name} ---")
         print(
             "Este modelo pode levar mais tempo para treinar, mas geralmente oferece excelente desempenho."
@@ -275,7 +282,7 @@ class XGBoostClassifier(BaseClassifier):
         # --- REMOVIDO ---
         # pyg_data = DataConverter.to_pyg_data(wsg_obj=wsg_obj, for_embedding_bag=False)
         # ---
-        
+
         # Usa 'data' que veio como argumento
         pyg_data = data
         X = pyg_data.x.cpu().numpy()
@@ -294,7 +301,7 @@ class XGBoostClassifier(BaseClassifier):
         dtest = xgb.DMatrix(X_test, label=y_test)
 
         # Medir o tempo de treinamento
-        start_time = time.time()
+        start_time = time.perf_counter()
 
         print(f"Treinando XGBoost por {self.num_boost_round} rounds...")
         # Treinar com feedback de progresso
@@ -308,7 +315,7 @@ class XGBoostClassifier(BaseClassifier):
             verbose_eval=10,  # Mostrar progresso a cada 10 rounds
         )
 
-        train_time = time.time() - start_time
+        train_time = time.perf_counter() - start_time
 
         # Fazer predições
         y_pred_probs = self.model.predict(dtest)
